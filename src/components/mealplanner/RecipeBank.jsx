@@ -5,22 +5,34 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }
   const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '' });
   const [editIndex, setEditIndex] = useState(null);
 
-  const addOrUpdateRecipe = () => {
-    if (!newRecipe.name.trim()) return;
+  const addOrUpdateRecipe = async () => {
+  if (!newRecipe.name.trim()) return;
 
-    if (editIndex !== null) {
-      // Update existing recipe
-      const updated = [...recipeBank];
-      updated[editIndex] = newRecipe;
-      setRecipeBank(updated);
-      setEditIndex(null);
-    } else {
-      // Add new recipe
-      setRecipeBank([...recipeBank, newRecipe]);
+  let finalRecipe = { ...newRecipe };
+
+  if (!finalRecipe.ingredients.trim()) {
+    try {
+      const aiIngredients = await generateIngredients(finalRecipe.name);
+      finalRecipe.ingredients = aiIngredients;
+    } catch (error) {
+      console.error('Failed to generate ingredients:', error);
+      alert('Could not generate ingredients. Please try again.');
+      return;
     }
+  }
 
-    setNewRecipe({ name: '', ingredients: '' });
-  };
+  if (editIndex !== null) {
+    const updated = [...recipeBank];
+    updated[editIndex] = finalRecipe;
+    setRecipeBank(updated);
+    setEditIndex(null);
+  } else {
+    setRecipeBank([...recipeBank, finalRecipe]);
+  }
+
+  setNewRecipe({ name: '', ingredients: '' });
+};
+
 
   const deleteRecipe = (index) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this item from your recipe bank?');
