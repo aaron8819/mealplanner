@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Textarea } from '@/components/ui';
+import { generateIngredients } from '@/utils/generateIngredients';
+
 
 export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }) {
   const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '' });
