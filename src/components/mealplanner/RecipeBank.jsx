@@ -1,11 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Input, Textarea } from '@/components/ui';
 import { generateIngredients } from '@/utils/generateIngredients';
+import { supabase } from '@/lib/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
+
+
+
+
 
 
 export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }) {
   const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '' });
   const [editIndex, setEditIndex] = useState(null);
+
+  // 🔄 Load recipes on mount
+  useEffect(() => {
+    async function loadRecipes() {
+      const { data, error } = await supabase.from('recipes').select('*');
+      if (error) {
+        console.error('Failed to fetch recipes:', error);
+      } else {
+        setRecipeBank(data);
+      }
+    }
+    loadRecipes();
+  }, [setRecipeBank]);
 
   const addOrUpdateRecipe = async () => {
   if (!newRecipe.name.trim()) return;
@@ -23,24 +42,50 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }
     }
   }
 
-  if (editIndex !== null) {
-    const updated = [...recipeBank];
-    updated[editIndex] = finalRecipe;
-    setRecipeBank(updated);
-    setEditIndex(null);
-  } else {
-    setRecipeBank([...recipeBank, finalRecipe]);
+   if (editIndex !== null) {
+      const updated = [...recipeBank];
+      const oldRecipe = updated[editIndex];
+      updated[editIndex] = finalRecipe;
+      setRecipeBank(updated);
+      setEditIndex(null);
+
+       // ✅ Update in Supabase by ID
+      const { error } = await supabase
+        .from('recipes')
+        .update({ name: finalRecipe.name, ingredients: finalRecipe.ingredients })
+        .eq('id', oldRecipe.id);
+
+      if (error) console.error('Supabase update error:', error);
+    } else {
+      const recipeWithId = { ...finalRecipe, id: uuidv4() };
+      setRecipeBank([...recipeBank, recipeWithId]);
+
+  // ✅ Store in Supabase
+    const { data, error } = await supabase
+        .from('recipes')
+        .insert([finalRecipe])
+        .select();
+
+      if (error) console.error('Supabase insert error:', error);
+      else console.log('Supabase insert success:', data);
   }
 
   setNewRecipe({ name: '', ingredients: '' });
 };
 
 
-  const deleteRecipe = (index) => {
+  const deleteRecipe = async (index) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this item from your recipe bank?');
     if (!confirmDelete) return;
 
-    setRecipeBank(recipeBank.filter((_, i) => i !== index));
+    const recipeToDelete = recipeBank[index];
+    const updatedBank = recipeBank.filter((_, i) => i !== index);
+    setRecipeBank(updatedBank);
+
+    // ❌ Remove from Supabase by ID
+    const { error } = await supabase.from('recipes').delete().eq('id', recipeToDelete.id);
+    if (error) console.error('Supabase delete error:', error);
+
     if (editIndex === index) {
       setEditIndex(null);
       setNewRecipe({ name: '', ingredients: '' });
