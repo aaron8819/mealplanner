@@ -4,15 +4,21 @@ import { generateIngredients } from '@/utils/generateIngredients';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
-export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }) {
+export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, user }) {
   const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '', category: 'other' });
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
   useEffect(() => {
+    if (!user) return;
+
     async function loadRecipes() {
-      const { data, error } = await supabase.from('recipes').select('*');
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('user_id', user.id);
+
       if (error) {
         console.error('Failed to fetch recipes:', error);
       } else {
@@ -20,10 +26,10 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }
       }
     }
     loadRecipes();
-  }, [setRecipeBank]);
+  }, [setRecipeBank, user]);
 
   const addOrUpdateRecipe = async () => {
-    if (!newRecipe.name.trim()) return;
+    if (!newRecipe.name.trim() || !user) return;
 
     let finalRecipe = { ...newRecipe };
 
@@ -51,21 +57,26 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }
           ingredients: finalRecipe.ingredients,
           category: finalRecipe.category
         })
-        .eq('id', editId);
+        .eq('id', editId)
+        .eq('user_id', user.id);
 
       if (error) console.error('Supabase update error:', error);
       setEditId(null);
     } else {
-      const recipeWithId = { ...finalRecipe, id: uuidv4() };
-      setRecipeBank([...recipeBank, recipeWithId]);
+      const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
+      console.log('🧾 Inserting recipe:', recipeWithId);
 
       const { data, error } = await supabase
         .from('recipes')
         .insert([recipeWithId])
         .select();
 
-      if (error) console.error('Supabase insert error:', error);
-      else console.log('Supabase insert success:', data);
+      if (error) {
+        console.error('❌ Supabase insert error:', error);
+      } else {
+        console.log('✅ Supabase insert success:', data);
+        setRecipeBank([...recipeBank, recipeWithId]);
+      }
     }
 
     setNewRecipe({ name: '', ingredients: '', category: 'other' });
@@ -73,12 +84,12 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }
 
   const deleteRecipe = async (id) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this item from your recipe bank?');
-    if (!confirmDelete) return;
+    if (!confirmDelete || !user) return;
 
     const updatedBank = recipeBank.filter((r) => r.id !== id);
     setRecipeBank(updatedBank);
 
-    const { error } = await supabase.from('recipes').delete().eq('id', id);
+    const { error } = await supabase.from('recipes').delete().eq('id', id).eq('user_id', user.id);
     if (error) console.error('Supabase delete error:', error);
 
     if (editId === id) {
@@ -103,62 +114,65 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe }
 
   return (
     <div className="p-4 bg-white rounded-xl shadow">
-      <h2 className="text-xl font-semibold mb-2">Recipe Bank</h2>
+  <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">📘 Recipe Bank</h3>
 
-      <Input
-        placeholder="Recipe name"
-        value={newRecipe.name}
-        onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
-        className="mb-2"
-      />
-
-      <Textarea
-        placeholder="Ingredients (comma separated)"
-        value={newRecipe.ingredients}
-        onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
-        className="mb-2"
-      />
-
+  {/* Recipe Input Form */}
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+    <Input
+      placeholder="Recipe name"
+      value={newRecipe.name}
+      onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
+    />
+    <Textarea
+      placeholder="Ingredients (comma separated)"
+      value={newRecipe.ingredients}
+      onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
+      className="sm:col-span-2"
+    />
+    <div className="flex gap-2 items-center sm:col-span-3">
       <select
         value={newRecipe.category}
         onChange={(e) => setNewRecipe({ ...newRecipe, category: e.target.value })}
-        className="mb-2 border rounded p-2 w-full"
+        className="border rounded p-2 w-full sm:w-auto"
       >
         <option value="chicken">Chicken</option>
         <option value="beef">Beef</option>
         <option value="turkey">Turkey</option>
         <option value="other">Other</option>
       </select>
-
       <Button onClick={addOrUpdateRecipe}>
         {editId !== null ? 'Save Changes' : 'Add Recipe'}
       </Button>
+    </div>
+  </div>
 
-      <div className="mt-4 flex gap-2 items-center">
-        <Input
-          placeholder="Search recipes..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="border rounded p-2"
-        >
-          <option value="all">All</option>
-          <option value="chicken">Chicken</option>
-          <option value="beef">Beef</option>
-          <option value="turkey">Turkey</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
+  {/* Search & Filter */}
+  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center mb-4">
+    <Input
+      placeholder="Search recipes..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="flex-1"
+    />
+    <select
+      value={categoryFilter}
+      onChange={(e) => setCategoryFilter(e.target.value)}
+      className="border rounded p-2 w-full sm:w-auto"
+    >
+      <option value="all">All</option>
+      <option value="chicken">Chicken</option>
+      <option value="beef">Beef</option>
+      <option value="turkey">Turkey</option>
+      <option value="other">Other</option>
+    </select>
+  </div>
 
-      {filteredRecipes.length === 0 ? (
-        <p className="text-gray-500 italic mt-4">
-          No recipes match your filter.
-        </p>
-      ) : (
+  {/* Results or Empty State */}
+  {filteredRecipes.length === 0 ? (
+    <p className="text-gray-500 italic">No recipes found. Try adding one or adjusting your filters.</p>
+  ) : (
+  
+
         ['chicken', 'beef', 'turkey', 'other'].map((cat) => {
           const filteredByCategory = filteredRecipes.filter((r) => r.category === cat);
           if (filteredByCategory.length === 0) return null;

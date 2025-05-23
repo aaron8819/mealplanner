@@ -6,23 +6,23 @@ import {
 } from '@/constants/CategoryConstants';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function ShoppingList({ selectedRecipes, customItems = [] }) {
+export default function ShoppingList({ selectedRecipes, customItems = [], user }) {
   const [persistedItems, setPersistedItems] = useState([]);
   const [dismissedItems, setDismissedItems] = useState({});
   const [manualRemovals, setManualRemovals] = useState({});
   const [clickTimestamps, setClickTimestamps] = useState({});
 
-  // ✅ Fetch shopping items from Supabase once on mount
   useEffect(() => {
+    if (!user) return;
+
     async function fetchItems() {
-      const { data, error } = await supabase.from('shopping_items').select('*');
+      const { data, error } = await supabase.from('shopping_items').select('*').eq('user_id', user.id);
       if (error) console.error('Error fetching items:', error);
       else setPersistedItems(data || []);
     }
     fetchItems();
-  }, []);
+  }, [user]);
 
-  // ✅ Extract ingredients from selectedRecipes + customItems
   const rawIngredientCount = {};
   selectedRecipes.forEach((recipe) => {
     const ingredients = Array.isArray(recipe.ingredients)
@@ -39,7 +39,6 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
     if (trimmed) rawIngredientCount[trimmed] = (rawIngredientCount[trimmed] || 0) + 1;
   });
 
-  // ✅ Adjust ingredientCount with manual removals
   const ingredientCount = {};
   Object.keys(rawIngredientCount).forEach((name) => {
     const adjusted = rawIngredientCount[name] - (manualRemovals[name] || 0);
@@ -48,8 +47,9 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
 
   const currentIngredientNames = Object.keys(ingredientCount);
 
-  // ✅ Insert new ingredients into Supabase, avoiding duplicates
   useEffect(() => {
+    if (!user) return;
+
     const persistedNames = new Set(persistedItems.map((item) => item.name));
     const newNames = currentIngredientNames.filter(
       (name) => !persistedNames.has(name) && dismissedItems[name] !== 'removed'
@@ -57,11 +57,11 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
 
     if (newNames.length === 0) return;
 
-    const inserts = newNames.map((name) => ({ name }));
+    const inserts = newNames.map((name) => ({ name, user_id: user.id }));
 
     supabase
       .from('shopping_items')
-      .upsert(inserts, { onConflict: 'name' }) // 🛡️ dedupe by name
+      .upsert(inserts, { onConflict: 'user_id,name' }) // ✅ composite constraint
       .select()
       .then(({ data, error }) => {
         if (error) {
@@ -72,14 +72,11 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
           setPersistedItems([...filtered, ...data]);
         }
       });
-  }, [
-    currentIngredientNames.join(','),
-    persistedItems.map(i => i.name).join(','),
-    JSON.stringify(dismissedItems),
-  ]);
+  }, [currentIngredientNames.join(','), persistedItems.map(i => i.name).join(','), JSON.stringify(dismissedItems), user]);
 
-  // ✅ Auto-delete ingredients removed due to deselected recipes
   useEffect(() => {
+    if (!user) return;
+
     const currentNamesSet = new Set(currentIngredientNames);
 
     const itemsToRemove = persistedItems.filter(
@@ -106,13 +103,8 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
           );
         }
       });
-  }, [
-    currentIngredientNames.join(','),
-    persistedItems.map((item) => item.name).join(','),
-    JSON.stringify(dismissedItems),
-  ]);
+  }, [currentIngredientNames.join(','), persistedItems.map((item) => item.name).join(','), JSON.stringify(dismissedItems), user]);
 
-  // ✅ Handle double-click for delete logic
   const handleItemClick = async (name) => {
     const now = Date.now();
     const lastClick = clickTimestamps[name] || 0;
@@ -132,7 +124,7 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
 
       const match = persistedItems.find((item) => item.name === name);
       if (match) {
-        const { error } = await supabase.from('shopping_items').delete().eq('id', match.id);
+        const { error } = await supabase.from('shopping_items').delete().eq('id', match.id).eq('user_id', user.id);
         if (error) {
           console.error(`❌ Delete error for "${name}":`, error);
         } else {
@@ -145,46 +137,37 @@ export default function ShoppingList({ selectedRecipes, customItems = [] }) {
     }
   };
 
-  // ✅ Reset removed status if a re-added recipe brings the item back
   useEffect(() => {
-  const updatedDismissed = { ...dismissedItems };
-  const updatedManual = { ...manualRemovals };
+    const updatedDismissed = { ...dismissedItems };
+    const updatedManual = { ...manualRemovals };
 
-  for (const name of Object.keys(rawIngredientCount)) {
-    const rawQty = rawIngredientCount[name] || 0;
-    const removedQty = manualRemovals[name] || 0;
+    for (const name of Object.keys(rawIngredientCount)) {
+      const rawQty = rawIngredientCount[name] || 0;
+      const removedQty = manualRemovals[name] || 0;
 
-    // ✅ If reintroduced, reset 'removed' dismissal
-    if (dismissedItems[name] === 'removed' && rawQty > 0) {
-      delete updatedDismissed[name];
+      if (dismissedItems[name] === 'removed' && rawQty > 0) {
+        delete updatedDismissed[name];
+      }
+
+      if (removedQty && rawQty > removedQty) {
+        updatedManual[name] = 0;
+      } else if (removedQty >= rawQty) {
+        delete updatedManual[name];
+      }
     }
 
-    // ✅ If quantity needed equals or exceeds removed amount, reset manualRemovals
-    if (removedQty && rawQty > removedQty) {
-      updatedManual[name] = 0;
-    } else if (removedQty >= rawQty) {
-      delete updatedManual[name];
-    }
-  }
+    setDismissedItems(updatedDismissed);
+    setManualRemovals(updatedManual);
+  }, [currentIngredientNames.join(',')]);
 
-  setDismissedItems(updatedDismissed);
-  setManualRemovals(updatedManual);
-}, [currentIngredientNames.join(',')]);
-
-
-
-
-  // ✅ Display fallback
   if (currentIngredientNames.length === 0) {
     return (
       <div className="p-4 bg-white rounded-xl shadow">
-        <h2 className="text-xl font-semibold mb-4">Shopping List</h2>
         <p className="text-gray-500 italic">No ingredients to display yet.</p>
       </div>
     );
   }
 
-  // ✅ Categorize ingredients for display
   const categorized = {};
   Object.entries(ingredientCount).forEach(([name, count]) => {
     if (dismissedItems[name] === 'removed') return;
