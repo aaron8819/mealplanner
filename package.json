@@ -20,6 +20,22 @@
   "devDependencies": {
     "@rollup/plugin-alias": "^5.1.1",
     "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.7",
     "vite": "^4.4.9"
-  }
+  },
+  "main": "vite.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aaron8819/mealplanner.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aaron8819/mealplanner/issues"
+  },
+  "homepage": "https://github.com/aaron8819/mealplanner#readme",
+  "description": ""
 }

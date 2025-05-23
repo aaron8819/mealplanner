@@ -25,7 +25,7 @@ export const CATEGORY_KEYWORDS = {
   'potato', 'potatoes', 'sweet potato', 'yam', 'yams',
   'tomato', 'tomatoes', 'avocado', 'beet', 'radish', 'turnip',
   'eggplant', 'mushroom', 'mushrooms', 'green bean', 'green beans',
-  'snap pea', 'snow pea', 'asparagus', 'artichoke',
+  'snap pea', 'snow pea', 'asparagus', 'artichoke', 'cilantro',
 
   // Fruits
   'apple', 'apples', 'banana', 'bananas', 'orange', 'oranges',
@@ -72,7 +72,7 @@ export const CATEGORY_KEYWORDS = {
   'non-perishable': [
   // Canned goods
   'canned beans', 'canned tomatoes', 'canned corn', 'canned soup',
-  'canned tuna', 'canned salmon', 'canned vegetables', 'canned fruit',
+  'canned tuna', 'canned salmon', 'canned vegetables', 'canned fruit', 'sundried tomato', 'rotel',
 
   // Dry grains & legumes
   'rice', 'brown rice', 'white rice', 'quinoa', 'lentils',

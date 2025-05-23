@@ -26,8 +26,11 @@ export default function MealPlanner() {
         recipeBank={recipeBank}
         setRecipeBank={setRecipeBank}
         onSelectRecipe={(recipe) => {
-          setSelectedRecipes((prev) => [...prev, recipe]);
-        }}
+          setSelectedRecipes((prev) => {
+            if (prev.some(r => r.id === recipe.id)) return prev;
+            return [...prev, recipe];
+  });
+}}
       />
 
       <SelectedRecipes
