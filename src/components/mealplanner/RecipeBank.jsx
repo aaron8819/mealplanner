@@ -9,6 +9,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [collapsedCategories, setCollapsedCategories] = useState(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -104,6 +105,18 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
     setEditId(id);
   };
 
+  const toggleCategoryCollapse = (category) => {
+    setCollapsedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  };
+
   const filteredRecipes = recipeBank.filter((recipe) => {
     const matchesCategory = categoryFilter === 'all' || recipe.category === categoryFilter;
     const matchesSearch =
@@ -171,32 +184,53 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   {filteredRecipes.length === 0 ? (
     <p className="text-gray-500 italic">No recipes found. Try adding one or adjusting your filters.</p>
   ) : (
-  
+
 
         ['chicken', 'beef', 'turkey', 'other'].map((cat) => {
           const filteredByCategory = filteredRecipes.filter((r) => r.category === cat);
           if (filteredByCategory.length === 0) return null;
 
+          const isCollapsed = collapsedCategories.has(cat);
+
           return (
             <div key={cat} className="mt-4">
-              <h3 className="text-lg font-bold capitalize mb-2">
-                {cat === 'chicken' && '🐔 '}
-                {cat === 'beef' && '🐄 '}
-                {cat === 'turkey' && '🦃 '}
-                {cat}
+              <h3
+                className="text-lg font-bold capitalize mb-2 cursor-pointer hover:bg-gray-100 p-2 rounded-md transition-colors flex items-center justify-between"
+                onClick={() => toggleCategoryCollapse(cat)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleCategoryCollapse(cat);
+                  }
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  {cat === 'chicken' && '🐔 '}
+                  {cat === 'beef' && '🐄 '}
+                  {cat === 'turkey' && '🦃 '}
+                  {cat}
+                  <span className="text-sm text-gray-500">({filteredByCategory.length})</span>
+                </span>
+                <span className="text-gray-400 text-sm">
+                  {isCollapsed ? '▶️' : '▼️'}
+                </span>
               </h3>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filteredByCategory.map((recipe) => (
-                  <li key={recipe.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md text-sm">
-                    <span className="truncate pr-2 flex-1">{recipe.name}</span>
-                    <div className="flex gap-1">
-                      <Button onClick={() => onSelectRecipe(recipe)} size="icon" className="px-2">➕</Button>
-                      <Button onClick={() => editRecipe(recipe.id)} size="icon" className="px-2">✏️</Button>
-                      <Button onClick={() => deleteRecipe(recipe.id)} size="icon" variant="destructive" className="px-2">🗑️</Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              {!isCollapsed && (
+                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredByCategory.map((recipe) => (
+                    <li key={recipe.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md text-sm">
+                      <span className="truncate pr-2 flex-1">{recipe.name}</span>
+                      <div className="flex gap-1">
+                        <Button onClick={() => onSelectRecipe(recipe)} size="icon" className="px-2">➕</Button>
+                        <Button onClick={() => editRecipe(recipe.id)} size="icon" className="px-2">✏️</Button>
+                        <Button onClick={() => deleteRecipe(recipe.id)} size="icon" variant="destructive" className="px-2">🗑️</Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           );
         })
