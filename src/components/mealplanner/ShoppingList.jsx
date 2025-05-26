@@ -1,4 +1,3 @@
-import React from 'react';
 import { CATEGORY_ORDER, CATEGORY_ICONS } from '@/constants/CategoryConstants';
 import { useShoppingData } from '@/hooks/useShoppingData';
 
@@ -37,7 +36,7 @@ export default function ShoppingList({ selectedRecipes, customItems = [], user, 
                 <li
                   key={idx}
                   onClick={() => handleItemClick(name)}
-                  className={`cursor-pointer transition-opacity ${
+                  className={`cursor-pointer ${
                     dismissedItems[name] === 'checked'
                       ? 'line-through text-gray-400'
                       : ''

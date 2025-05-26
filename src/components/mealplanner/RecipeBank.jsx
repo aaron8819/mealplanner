@@ -356,6 +356,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
                   {cat === 'chicken' && '🐔 '}
                   {cat === 'beef' && '🐄 '}
                   {cat === 'turkey' && '🦃 '}
+                  {cat === 'other' && '🍽️ '}
                   {cat}
                   <span className="text-sm text-gray-500">({filteredByCategory.length})</span>
                 </span>

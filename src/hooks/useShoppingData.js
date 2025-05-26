@@ -6,6 +6,7 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
   const [persistedItems, setPersistedItems] = useState([]);
   const [dismissedItems, setDismissedItems] = useState({});
   const [clickTimestamps, setClickTimestamps] = useState({});
+  const [lastSyncedRecipes, setLastSyncedRecipes] = useState([]);
 
   const rawIngredientCount = {};
   const ingredientToRecipes = {};
@@ -52,6 +53,15 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
   // Sync recipe ingredients to Supabase
   useEffect(() => {
     if (!user) return;
+
+    // Check if recipes actually changed to prevent unnecessary syncs
+    const currentRecipeIds = selectedRecipes.map(r => r.id).sort().join(',');
+    const lastRecipeIds = lastSyncedRecipes.map(r => r.id).sort().join(',');
+
+    if (currentRecipeIds === lastRecipeIds) {
+      console.log('⏭️ Skipping sync - recipes unchanged');
+      return;
+    }
 
     const syncIngredientsToSupabase = async () => {
       try {
@@ -117,6 +127,8 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
           console.error('❌ Error syncing recipe ingredients:', error);
         } else {
           console.log('✅ Successfully synced ingredients to Supabase:', data?.length || 0, 'items');
+          // Update last synced recipes to prevent duplicate syncs
+          setLastSyncedRecipes([...selectedRecipes]);
         }
       } catch (error) {
         console.error('❌ Error in syncIngredientsToSupabase:', error);
@@ -124,7 +136,7 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
     };
 
     syncIngredientsToSupabase();
-  }, [user, selectedRecipes]);
+  }, [user, selectedRecipes, lastSyncedRecipes]);
 
 
 
