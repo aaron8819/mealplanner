@@ -26,24 +26,51 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
   }, [user, setCustomItems]);
 
   // ✅ Add item
-  const addCustomItem = async () => {
-    if (!customName.trim() || !user) return;
+const addCustomItem = async () => {
+  if (!customName.trim() || !user) return;
 
-    const item = {
-      name: customName,
-      user_id: user.id,
-      source: 'custom',
-    };
+  const names = customName
+    .split(',')
+    .map(n => n.trim().toLowerCase())
+    .filter(n => n);
 
-    const { data, error } = await supabase.from('shopping_items').insert([item]).select();
+  if (names.length === 0) return;
 
-    if (error) {
-      console.error('Error inserting custom item:', error);
-    } else {
-      setCustomItems((prev) => [...prev, ...data]);
-      setCustomName('');
-    }
-  };
+  const inserts = names.map(name => ({
+    name,
+    user_id: user.id,
+    source: 'custom',
+  }));
+
+  const { data, error } = await supabase
+    .from('shopping_items')
+    .insert(inserts)
+    .select();
+
+  if (error) {
+    console.error('Error inserting custom items:', error);
+  } else {
+    setCustomItems(prev => [...prev, ...data]);
+    setCustomName('');
+  }
+};
+//Reset custom items
+const resetCustomItems = async () => {
+  if (!user) return;
+
+  const { error } = await supabase
+    .from('shopping_items')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('source', 'custom');
+
+  if (error) {
+    console.error('Error resetting custom items:', error);
+  } else {
+    setCustomItems([]);
+  }
+};
+
 
   // ✅ Delete item
   const deleteCustomItem = async (index) => {
@@ -66,19 +93,26 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
   return (
     <div className="bg-white p-4 rounded-xl shadow">
       <div className="flex gap-2 mb-3">
-        <input
-          className="border rounded px-2 py-1 w-full"
-          placeholder="e.g. foil, paper towels..."
-          value={customName}
-          onChange={(e) => setCustomName(e.target.value)}
-        />
-        <button
-          className="bg-blue-500 text-white px-3 py-1 rounded"
-          onClick={addCustomItem}
-        >
-          Add
-        </button>
-      </div>
+  <input
+    className="border rounded px-2 py-1 w-full"
+    placeholder="Add custom items (comma separated)"
+    value={customName}
+    onChange={(e) => setCustomName(e.target.value)}
+  />
+  <button
+    className="bg-blue-500 text-white px-3 py-1 rounded"
+    onClick={addCustomItem}
+  >
+    Add
+  </button>
+  <button
+    className="bg-red-500 text-white px-3 py-1 rounded"
+    onClick={resetCustomItems}
+  >
+    Reset
+  </button>
+</div>
+
 
       {customItems.length > 0 && (
         <ul className="space-y-1">

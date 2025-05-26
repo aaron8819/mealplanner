@@ -4,6 +4,7 @@ import SelectedRecipes from './SelectedRecipes';
 import ShoppingList from './ShoppingList';
 import CustomItemManager from './CustomItemManager';
 import { supabase } from '@/lib/supabaseClient';
+import ResetButton from '@/components/ui/ResetButton';
 
 export default function MealPlanner({ user }) {
   const [recipeBank, setRecipeBank] = useState([]);
@@ -12,6 +13,13 @@ export default function MealPlanner({ user }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <ResetButton
+  user={user}
+  setSelectedRecipes={setSelectedRecipes}
+  onResetComplete={() => {
+    // Optional: refresh shopping list state, or show a toast
+  }}
+/>
       <RecipeBank
         recipeBank={recipeBank}
         setRecipeBank={setRecipeBank}
