@@ -1,10 +1,13 @@
 import React from 'react';
 
-export function Input({ className = '', ...props }) {
+export const Input = React.forwardRef(({ className = '', ...props }, ref) => {
   return (
     <input
-      className={`border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:border-blue-300 ${className}`}
+      ref={ref}
+      className={`border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:border-blue-300 transition-colors ${className}`}
       {...props}
     />
   );
-}
+});
+
+Input.displayName = 'Input';

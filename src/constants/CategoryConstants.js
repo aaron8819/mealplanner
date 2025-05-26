@@ -1,3 +1,20 @@
+import {
+  Salad,
+  Wheat,
+  Beef,
+  Package,
+  Snowflake,
+  ChefHat,
+  ShoppingCart,
+  Plus,
+  Edit,
+  Trash2,
+  Check,
+  X,
+  ChevronDown,
+  ChevronRight
+} from 'lucide-react';
+
 export const CATEGORY_ORDER = [
   'produce',
   'bakery',
@@ -7,11 +24,23 @@ export const CATEGORY_ORDER = [
 ];
 
 export const CATEGORY_ICONS = {
-  produce: '🥬',
-  bakery: '🍞',
-  'protein and cheese': '🍗',
-  'non-perishable': '📦',
-  perishable: '🧊'
+  produce: Salad,
+  bakery: Wheat,
+  'protein and cheese': Beef,
+  'non-perishable': Package,
+  perishable: Snowflake
+};
+
+export const UI_ICONS = {
+  chef: ChefHat,
+  cart: ShoppingCart,
+  add: Plus,
+  edit: Edit,
+  delete: Trash2,
+  check: Check,
+  close: X,
+  chevronDown: ChevronDown,
+  chevronRight: ChevronRight
 };
 
 export const CATEGORY_KEYWORDS = {
@@ -152,9 +181,76 @@ export const CATEGORY_KEYWORDS = {
 
 };
 
-export function classifyIngredient(ingredientName) {
-  const name = ingredientName.toLowerCase();
+// High-priority keywords that override general category matches
+export const PRIORITY_KEYWORDS = {
+  'non-perishable': [
+    // Sauces (often contain words like 'tomato', 'fish', etc.)
+    'tomato sauce', 'tomato paste', 'tomato puree', 'crushed tomatoes', 'diced tomatoes',
+    'fish sauce', 'soy sauce', 'hot sauce', 'barbecue sauce', 'bbq sauce',
+    'pasta sauce', 'pizza sauce', 'marinara sauce', 'alfredo sauce',
+    'worcestershire sauce', 'teriyaki sauce', 'hoisin sauce', 'oyster sauce',
+    'sriracha sauce', 'tabasco sauce', 'buffalo sauce', 'ranch dressing',
+    'caesar dressing', 'italian dressing', 'balsamic dressing',
 
+    // Canned/jarred items with misleading keywords
+    'canned tomatoes', 'canned corn', 'canned beans', 'canned tuna', 'canned salmon',
+    'canned chicken', 'canned beef', 'jarred salsa', 'bottled water',
+
+    // Powders and dried items
+    'garlic powder', 'onion powder', 'tomato powder', 'mushroom powder',
+    'chicken powder', 'beef powder', 'fish powder', 'vegetable powder',
+    'dried tomatoes', 'sun-dried tomatoes', 'dried mushrooms', 'dried herbs',
+
+    // Oils and vinegars with misleading names
+    'sesame oil', 'peanut oil', 'coconut oil', 'avocado oil',
+    'apple cider vinegar', 'rice vinegar', 'wine vinegar',
+
+    // Broths and stocks
+    'chicken broth', 'beef broth', 'vegetable broth', 'fish stock',
+    'chicken stock', 'beef stock', 'bone broth',
+
+    // Specialty items
+    'coconut milk', 'almond milk powder', 'protein powder',
+    'nutritional yeast', 'vanilla extract', 'almond extract'
+  ],
+
+  'perishable': [
+    // Refrigerated items that might contain confusing keywords
+    'fresh pasta', 'refrigerated dough', 'fresh herbs',
+    'fresh salsa', 'fresh hummus'
+  ],
+
+  'produce': [
+    // Fresh items that should definitely be produce
+    'fresh tomatoes', 'fresh garlic', 'fresh ginger', 'fresh basil',
+    'fresh cilantro', 'fresh parsley', 'fresh spinach', 'fresh lettuce',
+
+    // Thai and specialty fresh ingredients
+    'thai basil', 'thai basil leaves', 'thai chiles', 'thai chilies',
+    'thai peppers', 'birds eye chiles', 'bird eye chiles',
+
+    // Fresh prepared items that are produce-based
+    'guacamole', 'guac', 'fresh guacamole', 'homemade guacamole'
+  ]
+};
+
+export function classifyIngredient(ingredientName) {
+  const name = ingredientName.toLowerCase().trim();
+
+  // First, check priority keywords (most specific matches)
+  for (const category of CATEGORY_ORDER) {
+    if (PRIORITY_KEYWORDS[category]) {
+      // Check for exact phrase matches first (longer phrases take priority)
+      const sortedKeywords = PRIORITY_KEYWORDS[category].sort((a, b) => b.length - a.length);
+      for (const keyword of sortedKeywords) {
+        if (name.includes(keyword)) {
+          return category;
+        }
+      }
+    }
+  }
+
+  // Then check regular keywords
   for (const category of CATEGORY_ORDER) {
     if (CATEGORY_KEYWORDS[category].some(keyword => name.includes(keyword))) {
       return category;

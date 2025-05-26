@@ -2,13 +2,13 @@ import React from 'react';
 import { CATEGORY_ORDER, CATEGORY_ICONS } from '@/constants/CategoryConstants';
 import { useShoppingData } from '@/hooks/useShoppingData';
 
-export default function ShoppingList({ selectedRecipes, customItems = [], user }) {
+export default function ShoppingList({ selectedRecipes, customItems = [], user, manualRemovals, setManualRemovals }) {
   const {
     categorizedIngredients,
     handleItemClick,
     dismissedItems,
     currentIngredientNames,
-  } = useShoppingData({ selectedRecipes, customItems, user });
+  } = useShoppingData({ selectedRecipes, customItems, user, manualRemovals, setManualRemovals });
 
   if (currentIngredientNames.length === 0) {
     return (
@@ -24,10 +24,12 @@ export default function ShoppingList({ selectedRecipes, customItems = [], user }
         const items = categorizedIngredients[category];
         if (!items || items.length === 0) return null;
 
+        const IconComponent = CATEGORY_ICONS[category];
+
         return (
           <div key={category} className="mb-4">
-            <h3 className="font-semibold text-lg mb-1">
-              {CATEGORY_ICONS[category]}{' '}
+            <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
+              <IconComponent className="w-5 h-5" />
               {category.charAt(0).toUpperCase() + category.slice(1)}
             </h3>
             <ul className="list-disc list-inside space-y-1 ml-4">

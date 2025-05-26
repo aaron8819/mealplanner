@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { LoadingSpinner, ErrorMessage } from '@/components/ui';
 
 export default function CustomItemManager({ user, customItems, setCustomItems }) {
   const [customName, setCustomName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // ✅ Fetch custom items
   useEffect(() => {
@@ -26,50 +29,61 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
   }, [user, setCustomItems]);
 
   // ✅ Add item
-const addCustomItem = async () => {
-  if (!customName.trim() || !user) return;
+  const addCustomItem = async () => {
+    if (!customName.trim() || !user) return;
 
-  const names = customName
-    .split(',')
-    .map(n => n.trim().toLowerCase())
-    .filter(n => n);
+    setLoading(true);
+    setError('');
 
-  if (names.length === 0) return;
+    try {
+      const names = customName
+        .split(',')
+        .map(n => n.trim().toLowerCase())
+        .filter(n => n);
 
-  const inserts = names.map(name => ({
-    name,
-    user_id: user.id,
-    source: 'custom',
-  }));
+      if (names.length === 0) return;
 
-  const { data, error } = await supabase
-    .from('shopping_items')
-    .insert(inserts)
-    .select();
+      const inserts = names.map(name => ({
+        name,
+        user_id: user.id,
+        source: 'custom',
+      }));
 
-  if (error) {
-    console.error('Error inserting custom items:', error);
-  } else {
-    setCustomItems(prev => [...prev, ...data]);
-    setCustomName('');
-  }
-};
-//Reset custom items
-const resetCustomItems = async () => {
-  if (!user) return;
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .insert(inserts)
+        .select();
 
-  const { error } = await supabase
-    .from('shopping_items')
-    .delete()
-    .eq('user_id', user.id)
-    .eq('source', 'custom');
+      if (error) {
+        console.error('Error inserting custom items:', error);
+        setError('Failed to add custom items. Please try again.');
+      } else {
+        setCustomItems(prev => [...prev, ...data]);
+        setCustomName('');
+      }
+    } catch (error) {
+      console.error('Add custom item failed:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  //Reset custom items
+  const resetCustomItems = async () => {
+    if (!user) return;
 
-  if (error) {
-    console.error('Error resetting custom items:', error);
-  } else {
-    setCustomItems([]);
-  }
-};
+    const { error } = await supabase
+      .from('shopping_items')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('source', 'custom');
+
+    if (error) {
+      console.error('Error resetting custom items:', error);
+    } else {
+      setCustomItems([]);
+    }
+  };
 
 
   // ✅ Delete item
@@ -91,43 +105,103 @@ const resetCustomItems = async () => {
   };
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow">
-      <div className="flex gap-2 mb-3">
-  <input
-    className="border rounded px-2 py-1 w-full"
-    placeholder="Add custom items (comma separated)"
-    value={customName}
-    onChange={(e) => setCustomName(e.target.value)}
-  />
-  <button
-    className="bg-blue-500 text-white px-3 py-1 rounded"
-    onClick={addCustomItem}
-  >
-    Add
-  </button>
-  <button
-    className="bg-red-500 text-white px-3 py-1 rounded"
-    onClick={resetCustomItems}
-  >
-    Reset
-  </button>
-</div>
+    <div>
+      {error && (
+        <ErrorMessage
+          message={error}
+          onDismiss={() => setError('')}
+          className="mb-3"
+        />
+      )}
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+        <input
+          style={{
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            padding: '8px 12px',
+            width: '300px',
+            fontSize: '14px',
+            outline: 'none'
+          }}
+          placeholder="Add custom items (comma separated)"
+          value={customName}
+          onChange={(e) => setCustomName(e.target.value)}
+          disabled={loading}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCustomItem();
+            }
+          }}
+        />
+        <button
+          onClick={addCustomItem}
+          disabled={loading}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'transparent',
+            color: '#374151',
+            border: '1px solid #d1d5db',
+            borderRadius: '4px',
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {loading && <LoadingSpinner size="sm" />}
+          + Add
+        </button>
+        <button
+          onClick={resetCustomItems}
+          disabled={loading}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '4px',
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Reset
+        </button>
+      </div>
 
 
       {customItems.length > 0 && (
         <ul className="space-y-1">
           {customItems.map((item, index) => (
-            <li
-              key={item.id || index}
-              className="flex justify-between items-center bg-gray-50 px-3 py-1 rounded"
-            >
-              <span>{item.name}</span>
-              <button
-                onClick={() => deleteCustomItem(index)}
-                className="text-red-500 text-sm hover:underline"
-              >
-                Delete
-              </button>
+            <li key={item.id || index} className="bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors text-sm">
+              {item.name}
+              <span style={{ marginLeft: '8px' }}>
+                <button
+                  onClick={() => deleteCustomItem(index)}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    backgroundColor: 'transparent',
+                    color: '#ef4444',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                  title="Delete custom item"
+                >
+                  🗑️
+                </button>
+              </span>
             </li>
           ))}
         </ul>

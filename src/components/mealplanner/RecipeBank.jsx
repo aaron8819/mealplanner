@@ -1,15 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Input, Textarea } from '@/components/ui';
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, LoadingSpinner, ErrorMessage } from '@/components/ui';
 import { generateIngredients } from '@/utils/generateIngredients';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
+import { UI_ICONS } from '@/constants/CategoryConstants';
+import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
 
 export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, user }) {
-  const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '', category: 'other' });
+  const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '', category: 'chicken' });
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [collapsedCategories, setCollapsedCategories] = useState(new Set());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const searchInputRef = useRef(null);
+  const nameInputRef = useRef(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, recipe: null });
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      ...SHORTCUTS.ADD_RECIPE,
+      action: () => {
+        if (nameInputRef.current) {
+          nameInputRef.current.focus();
+        }
+      }
+    },
+    {
+      ...SHORTCUTS.SEARCH,
+      action: () => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }
+    },
+    {
+      ...SHORTCUTS.SAVE,
+      action: () => {
+        if (newRecipe.name.trim()) {
+          addOrUpdateRecipe();
+        }
+      }
+    },
+    {
+      ...SHORTCUTS.ESCAPE,
+      action: () => {
+        if (deleteModal.isOpen) {
+          closeDeleteModal();
+        } else if (editId !== null) {
+          setEditId(null);
+          setNewRecipe({ name: '', ingredients: '', category: 'chicken' });
+        }
+        setError('');
+      }
+    }
+  ]);
 
   useEffect(() => {
     if (!user) return;
@@ -32,70 +79,104 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const addOrUpdateRecipe = async () => {
     if (!newRecipe.name.trim() || !user) return;
 
-    let finalRecipe = { ...newRecipe };
+    setLoading(true);
+    setError('');
 
-    if (!finalRecipe.ingredients.trim()) {
-      try {
-        const aiIngredients = await generateIngredients(finalRecipe.name);
-        finalRecipe.ingredients = aiIngredients;
-      } catch (error) {
-        console.error('Failed to generate ingredients:', error);
-        alert('Could not generate ingredients. Please try again.');
-        return;
+    try {
+      let finalRecipe = { ...newRecipe };
+
+      if (!finalRecipe.ingredients.trim()) {
+        try {
+          const aiIngredients = await generateIngredients(finalRecipe.name);
+          finalRecipe.ingredients = aiIngredients;
+        } catch (error) {
+          console.error('Failed to generate ingredients:', error);
+          setError('Could not generate ingredients. Please add them manually or try again.');
+          return;
+        }
       }
-    }
 
-    if (editId !== null) {
-      const updated = recipeBank.map((r) =>
-        r.id === editId ? { ...finalRecipe, id: editId } : r
-      );
-      setRecipeBank(updated);
+      if (editId !== null) {
+        const updated = recipeBank.map((r) =>
+          r.id === editId ? { ...finalRecipe, id: editId } : r
+        );
+        setRecipeBank(updated);
 
-      const { error } = await supabase
-        .from('recipes')
-        .update({
-          name: finalRecipe.name,
-          ingredients: finalRecipe.ingredients,
-          category: finalRecipe.category
-        })
-        .eq('id', editId)
-        .eq('user_id', user.id);
+        const { error } = await supabase
+          .from('recipes')
+          .update({
+            name: finalRecipe.name,
+            ingredients: finalRecipe.ingredients,
+            category: finalRecipe.category
+          })
+          .eq('id', editId)
+          .eq('user_id', user.id);
 
-      if (error) console.error('Supabase update error:', error);
-      setEditId(null);
-    } else {
-      const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
-      console.log('🧾 Inserting recipe:', recipeWithId);
-
-      const { data, error } = await supabase
-        .from('recipes')
-        .insert([recipeWithId])
-        .select();
-
-      if (error) {
-        console.error('❌ Supabase insert error:', error);
+        if (error) {
+          console.error('Supabase update error:', error);
+          setError('Failed to update recipe. Please try again.');
+          return;
+        }
+        setEditId(null);
       } else {
-        console.log('✅ Supabase insert success:', data);
-        setRecipeBank([...recipeBank, recipeWithId]);
-      }
-    }
+        const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
 
-    setNewRecipe({ name: '', ingredients: '', category: 'other' });
+        const { data, error } = await supabase
+          .from('recipes')
+          .insert([recipeWithId])
+          .select();
+
+        if (error) {
+          console.error('❌ Supabase insert error:', error);
+          setError('Failed to add recipe. Please try again.');
+          return;
+        } else {
+          setRecipeBank([...recipeBank, recipeWithId]);
+        }
+      }
+
+      setNewRecipe({ name: '', ingredients: '', category: 'chicken' });
+    } catch (error) {
+      console.error('Recipe operation failed:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteRecipe = async (id) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this item from your recipe bank?');
-    if (!confirmDelete || !user) return;
+  const openDeleteModal = (recipe) => {
+    setDeleteModal({ isOpen: true, recipe });
+  };
 
-    const updatedBank = recipeBank.filter((r) => r.id !== id);
-    setRecipeBank(updatedBank);
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, recipe: null });
+  };
 
-    const { error } = await supabase.from('recipes').delete().eq('id', id).eq('user_id', user.id);
-    if (error) console.error('Supabase delete error:', error);
+  const confirmDeleteRecipe = async () => {
+    if (!user || !deleteModal.recipe) return;
 
-    if (editId === id) {
-      setEditId(null);
-      setNewRecipe({ name: '', ingredients: '', category: 'other' });
+    try {
+      const updatedBank = recipeBank.filter((r) => r.id !== deleteModal.recipe.id);
+      setRecipeBank(updatedBank);
+
+      const { error } = await supabase.from('recipes').delete().eq('id', deleteModal.recipe.id).eq('user_id', user.id);
+      if (error) {
+        console.error('Supabase delete error:', error);
+        setError('Failed to delete recipe. Please try again.');
+        // Restore the recipe if deletion failed
+        setRecipeBank(recipeBank);
+        return;
+      }
+
+      if (editId === deleteModal.recipe.id) {
+        setEditId(null);
+        setNewRecipe({ name: '', ingredients: '', category: 'chicken' });
+      }
+
+      closeDeleteModal();
+    } catch (error) {
+      console.error('Delete operation failed:', error);
+      setError('An unexpected error occurred while deleting the recipe.');
     }
   };
 
@@ -127,50 +208,115 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
 
   return (
     <div className="p-4 bg-white rounded-xl shadow">
-  <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">📘 Recipe Bank</h3>
+      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <UI_ICONS.chef className="w-6 h-6" />
+        Recipe Bank
+      </h3>
+
+      {error && (
+        <ErrorMessage
+          message={error}
+          onDismiss={() => setError('')}
+          className="mb-4"
+        />
+      )}
 
   {/* Recipe Input Form */}
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-    <Input
+  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <input
+      ref={nameInputRef}
       placeholder="Recipe name"
       value={newRecipe.name}
       onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
+      style={{
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        width: '200px',
+        fontSize: '14px',
+        outline: 'none'
+      }}
     />
-    <Textarea
+    <input
       placeholder="Ingredients (comma separated)"
       value={newRecipe.ingredients}
       onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
-      className="sm:col-span-2"
+      style={{
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        width: '300px',
+        fontSize: '14px',
+        outline: 'none'
+      }}
     />
-    <div className="flex gap-2 items-center sm:col-span-3">
-      <select
-        value={newRecipe.category}
-        onChange={(e) => setNewRecipe({ ...newRecipe, category: e.target.value })}
-        className="border rounded p-2 w-full sm:w-auto"
-      >
-        <option value="chicken">Chicken</option>
-        <option value="beef">Beef</option>
-        <option value="turkey">Turkey</option>
-        <option value="other">Other</option>
-      </select>
-      <Button onClick={addOrUpdateRecipe}>
-        {editId !== null ? 'Save Changes' : 'Add Recipe'}
-      </Button>
-    </div>
+    <select
+      value={newRecipe.category}
+      onChange={(e) => setNewRecipe({ ...newRecipe, category: e.target.value })}
+      style={{
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        fontSize: '14px',
+        outline: 'none',
+        backgroundColor: 'white'
+      }}
+    >
+      <option value="chicken">Chicken</option>
+      <option value="beef">Beef</option>
+      <option value="turkey">Turkey</option>
+      <option value="other">Other</option>
+    </select>
+    <button
+      onClick={addOrUpdateRecipe}
+      disabled={loading}
+      style={{
+        padding: '8px 16px',
+        backgroundColor: 'transparent',
+        color: '#374151',
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        fontSize: '14px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.6 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        whiteSpace: 'nowrap'
+      }}
+    >
+      {loading && <LoadingSpinner size="sm" />}
+      {editId !== null ? 'Save Changes' : '+ Add Recipe'}
+    </button>
   </div>
 
   {/* Search & Filter */}
-  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center mb-4">
-    <Input
-      placeholder="Search recipes..."
+  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <input
+      ref={searchInputRef}
+      placeholder="Search recipes... (Ctrl+F)"
       value={searchTerm}
       onChange={(e) => setSearchTerm(e.target.value)}
-      className="flex-1"
+      style={{
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        width: '300px',
+        fontSize: '14px',
+        outline: 'none'
+      }}
     />
     <select
       value={categoryFilter}
       onChange={(e) => setCategoryFilter(e.target.value)}
-      className="border rounded p-2 w-full sm:w-auto"
+      style={{
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        fontSize: '14px',
+        outline: 'none',
+        backgroundColor: 'white'
+      }}
     >
       <option value="all">All</option>
       <option value="chicken">Chicken</option>
@@ -213,20 +359,77 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
                   {cat}
                   <span className="text-sm text-gray-500">({filteredByCategory.length})</span>
                 </span>
-                <span className="text-gray-400 text-sm">
-                  {isCollapsed ? '▶️' : '▼️'}
+                <span className="text-gray-400">
+                  {isCollapsed ? <UI_ICONS.chevronRight className="w-4 h-4" /> : <UI_ICONS.chevronDown className="w-4 h-4" />}
                 </span>
               </h3>
               {!isCollapsed && (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <ul className="space-y-1">
                   {filteredByCategory.map((recipe) => (
-                    <li key={recipe.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md text-sm">
-                      <span className="truncate pr-2 flex-1">{recipe.name}</span>
-                      <div className="flex gap-1">
-                        <Button onClick={() => onSelectRecipe(recipe)} size="icon" className="px-2">➕</Button>
-                        <Button onClick={() => editRecipe(recipe.id)} size="icon" className="px-2">✏️</Button>
-                        <Button onClick={() => deleteRecipe(recipe.id)} size="icon" variant="destructive" className="px-2">🗑️</Button>
-                      </div>
+                    <li key={recipe.id} className="bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors text-sm">
+                      {recipe.name}
+                      <span style={{ marginLeft: '8px' }}>
+                        <button
+                          onClick={() => onSelectRecipe(recipe)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            backgroundColor: 'transparent',
+                            color: '#3b82f6',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '4px',
+                            marginRight: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                          title="Add to selected recipes"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => editRecipe(recipe.id)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            backgroundColor: 'transparent',
+                            color: '#6b7280',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '4px',
+                            marginRight: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                          title="Edit recipe"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => openDeleteModal(recipe)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            backgroundColor: 'transparent',
+                            color: '#ef4444',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                          title="Delete recipe"
+                        >
+                          🗑️
+                        </button>
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -234,6 +437,62 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
             </div>
           );
         })
+      )}
+
+      {/* Delete Recipe Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={closeDeleteModal}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <UI_ICONS.delete className="w-5 h-5 text-red-600" />
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Delete Recipe
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Are you sure you want to delete <strong>"{deleteModal.recipe?.name}"</strong>?
+                  This action cannot be undone and will permanently remove this recipe from your recipe bank.
+                </p>
+
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={closeDeleteModal}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmDeleteRecipe}
+                    className="flex items-center gap-2"
+                  >
+                    <UI_ICONS.delete className="w-4 h-4" />
+                    Delete Recipe
+                  </Button>
+                </div>
+              </div>
+
+              <button
+                onClick={closeDeleteModal}
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <UI_ICONS.close className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

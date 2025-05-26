@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import MealPlanner from './components/mealplanner/MealPlanner';
 import Login from './components/ui/Login';
 import { supabase } from './lib/supabaseClient';
+import { LoadingSpinner } from './components/ui';
+import { LogOut } from 'lucide-react';
+import { KeyboardShortcutsHelp } from './components/ui/keyboard-shortcuts-help';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -24,7 +27,14 @@ export default function App() {
   };
 
   if (loading) {
-    return <p className="p-4 text-gray-600">Loading session...</p>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="flex flex-col items-center gap-3">
+          <LoadingSpinner size="lg" />
+          <p className="text-gray-600">Loading session...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -45,15 +55,17 @@ export default function App() {
         Welcome, <span className="font-medium">{user.email}</span>
       </span>
       <button
-        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
+        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm flex items-center gap-1 transition-colors"
         onClick={handleLogout}
       >
+        <LogOut className="w-4 h-4" />
         Log out
       </button>
     </div>
   </div>
 
   <MealPlanner user={user} />
+  <KeyboardShortcutsHelp />
 </div>
 
   );
