@@ -65,18 +65,35 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       if (line.length < 2) continue;
 
       if (inInstructionsSection) {
-        // Everything after "Instructions" goes to instructions
-        instructions.push(line);
+        // Clean up instructions - remove leading numbers and dashes
+        let cleanInstruction = line
+          .replace(/^\d+\.\s*/, '') // Remove leading numbers like "1. "
+          .replace(/^-\s*/, '') // Remove leading dashes
+          .replace(/^\*\s*/, '') // Remove leading asterisks
+          .trim();
+
+        if (cleanInstruction.length > 0) {
+          instructions.push(cleanInstruction);
+        }
       } else {
-        // Everything before "Instructions" goes to ingredients
-        // Only skip the main recipe title and "Ingredients:" header
+        // Clean up ingredients - remove leading dashes, bullets, etc.
         const isMainRecipeTitle = line === lines[0] && !lowerLine.includes('cup') && !lowerLine.includes('tsp') &&
                                  !lowerLine.includes('tbsp') && !lowerLine.includes('oz') && !lowerLine.includes('lb');
 
         if (!isMainRecipeTitle &&
             lowerLine !== 'ingredients' &&
             lowerLine !== 'ingredients:') {
-          ingredients.push(line);
+
+          let cleanIngredient = line
+            .replace(/^-\s*/, '') // Remove leading dashes
+            .replace(/^\*\s*/, '') // Remove leading asterisks
+            .replace(/^•\s*/, '') // Remove leading bullets
+            .replace(/^[\d]+\.\s*/, '') // Remove leading numbers
+            .trim();
+
+          if (cleanIngredient.length > 0) {
+            ingredients.push(cleanIngredient);
+          }
         }
       }
     }
