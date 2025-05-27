@@ -27,7 +27,7 @@ export const RecipeDetailsModal = ({
       .trim();
   };
 
-  // Simple, reliable parser that doesn't modify the text
+  // Enhanced parser that better handles recipe sections
   const parseRecipeDetails = (text) => {
     if (!text) return { ingredients: [], instructions: [] };
 
@@ -38,28 +38,37 @@ export const RecipeDetailsModal = ({
     let inInstructionsSection = false;
 
     for (const line of lines) {
-      const lowerLine = line.toLowerCase();
+      const lowerLine = line.toLowerCase().trim();
 
       // Check if we've hit the instructions section
-      if (lowerLine === 'instructions' || lowerLine === 'directions') {
+      if (lowerLine === 'instructions' ||
+          lowerLine === 'instructions:' ||
+          lowerLine === 'directions' ||
+          lowerLine === 'directions:' ||
+          lowerLine === 'method' ||
+          lowerLine === 'method:' ||
+          lowerLine === 'steps' ||
+          lowerLine === 'steps:') {
         inInstructionsSection = true;
         continue; // Skip the header itself
       }
 
-      // Skip empty lines and obvious headers
+      // Skip empty lines
       if (line.length < 2) continue;
 
       if (inInstructionsSection) {
         // Everything after "Instructions" goes to instructions
-        // Remove trailing colons since we add our own numbering
-        const cleanLine = line.replace(/:$/, '');
-        instructions.push(cleanLine);
+        // Keep colons for subheaders, but preserve the original line
+        instructions.push(line);
       } else {
-        // Everything before "Instructions" goes to ingredients (except section headers)
-        if (!lowerLine.startsWith('for the') &&
-            !lowerLine.startsWith('for ') &&
-            !lowerLine.includes('recipe') &&
-            !line.endsWith(':')) {
+        // Everything before "Instructions" goes to ingredients
+        // Only skip the main recipe title and "Ingredients:" header
+        const isMainRecipeTitle = line === lines[0] && !lowerLine.includes('cup') && !lowerLine.includes('tsp') &&
+                                 !lowerLine.includes('tbsp') && !lowerLine.includes('oz') && !lowerLine.includes('lb');
+
+        if (!isMainRecipeTitle &&
+            lowerLine !== 'ingredients' &&
+            lowerLine !== 'ingredients:') {
           ingredients.push(line);
         }
       }
@@ -70,6 +79,11 @@ export const RecipeDetailsModal = ({
 
   const { ingredients: parsedIngredients, instructions } = parseRecipeDetails(recipeDetails);
 
+  // Debug logging (remove in production)
+  // console.log('🔍 Recipe Details Text:', recipeDetails);
+  // console.log('🥕 Parsed Ingredients:', parsedIngredients);
+  // console.log('📋 Parsed Instructions:', instructions);
+
 
 
   useEffect(() => {
@@ -79,6 +93,7 @@ export const RecipeDetailsModal = ({
       setIngredients(recipe.ingredients || '');
       // If no recipe details exist, start in edit mode
       setIsEditing(!recipe.recipe_details);
+      console.log('🔄 Modal opened for recipe:', recipe.name, 'with details:', recipe.recipe_details);
     }
   }, [isOpen, recipe]);
 
@@ -107,6 +122,7 @@ export const RecipeDetailsModal = ({
       console.log('Saving ingredients:', ingredients);
       console.log('Saving recipe details:', recipeDetails);
       onSave({ ingredients, recipeDetails });
+      // Stay in the modal but exit edit mode to show the saved state
       setIsEditing(false);
     }
   };
@@ -374,12 +390,38 @@ Directions:
                             Ingredients:
                           </h4>
                           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {parsedIngredients.map((ingredient, idx) => (
-                              <li key={idx} style={{ display: 'flex', alignItems: 'flex-start' }}>
-                                <span style={{ color: '#6b7280', marginRight: '8px', marginTop: '4px' }}>•</span>
-                                <span>{ingredient}</span>
-                              </li>
-                            ))}
+                            {parsedIngredients.map((ingredient, idx) => {
+                              // Check if this line is a subheader (ends with colon and doesn't contain measurements)
+                              const isSubheader = ingredient.endsWith(':') &&
+                                                !ingredient.toLowerCase().includes('cup') &&
+                                                !ingredient.toLowerCase().includes('tsp') &&
+                                                !ingredient.toLowerCase().includes('tbsp') &&
+                                                !ingredient.toLowerCase().includes('oz') &&
+                                                !ingredient.toLowerCase().includes('lb') &&
+                                                !ingredient.toLowerCase().includes('taste') &&
+                                                !ingredient.toLowerCase().includes('tablespoon') &&
+                                                !ingredient.toLowerCase().includes('teaspoon');
+
+                              return (
+                                <li key={idx} style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  marginTop: isSubheader ? '12px' : '0',
+                                  marginBottom: isSubheader ? '4px' : '0'
+                                }}>
+                                  {!isSubheader && (
+                                    <span style={{ color: '#6b7280', marginRight: '8px', marginTop: '4px' }}>•</span>
+                                  )}
+                                  <span style={{
+                                    fontWeight: isSubheader ? '600' : 'normal',
+                                    color: isSubheader ? '#374151' : 'inherit',
+                                    fontSize: isSubheader ? '14px' : 'inherit'
+                                  }}>
+                                    {ingredient}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       )}
@@ -397,20 +439,51 @@ Directions:
                             Instructions:
                           </h4>
                           <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {instructions.map((instruction, idx) => (
-                              <li key={idx} style={{ display: 'flex', alignItems: 'flex-start' }}>
-                                <span style={{
-                                  color: '#2563eb',
-                                  fontWeight: '500',
-                                  marginRight: '12px',
-                                  marginTop: '2px',
-                                  minWidth: '1.5rem'
+                            {instructions.map((instruction, idx) => {
+                              // Check if this line is an instruction subheader (ends with colon)
+                              const isInstructionSubheader = instruction.endsWith(':');
+
+                              // Check if this line contains an inline subheader (starts with text followed by colon)
+                              const inlineSubheaderMatch = instruction.match(/^([^:]+):\s*(.+)$/);
+                              const hasInlineSubheader = inlineSubheaderMatch && !isInstructionSubheader;
+
+                              return (
+                                <li key={idx} style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  marginTop: isInstructionSubheader ? '16px' : '0',
+                                  marginBottom: isInstructionSubheader ? '4px' : '0'
                                 }}>
-                                  {idx + 1}.
-                                </span>
-                                <span>{instruction}</span>
-                              </li>
-                            ))}
+                                  {!isInstructionSubheader && (
+                                    <span style={{
+                                      color: '#2563eb',
+                                      fontWeight: '500',
+                                      marginRight: '12px',
+                                      marginTop: '2px',
+                                      minWidth: '1.5rem'
+                                    }}>
+                                      {instructions.filter((inst, i) => i <= idx && !inst.endsWith(':')).length}.
+                                    </span>
+                                  )}
+                                  <span style={{
+                                    fontWeight: isInstructionSubheader ? '600' : 'normal',
+                                    color: isInstructionSubheader ? '#374151' : 'inherit',
+                                    fontSize: isInstructionSubheader ? '14px' : 'inherit'
+                                  }}>
+                                    {hasInlineSubheader ? (
+                                      <>
+                                        <span style={{ fontWeight: '600', color: '#374151' }}>
+                                          {inlineSubheaderMatch[1]}:
+                                        </span>
+                                        <span> {inlineSubheaderMatch[2]}</span>
+                                      </>
+                                    ) : (
+                                      instruction
+                                    )}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ol>
                         </div>
                       )}

@@ -198,7 +198,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
           : recipe
       ));
 
-      closeRecipeDetailsModal();
+      // Don't close the modal - let the user see the saved result
     } catch (error) {
       console.error('Save recipe details failed:', error);
       setError('An unexpected error occurred while saving recipe details.');
