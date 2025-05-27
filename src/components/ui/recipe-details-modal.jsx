@@ -97,6 +97,15 @@ export const RecipeDetailsModal = ({
     }
   }, [isOpen, recipe]);
 
+  // Update local state when recipe data changes (after save)
+  useEffect(() => {
+    if (recipe && !isEditing) {
+
+      setRecipeDetails(recipe.recipe_details || '');
+      setIngredients(recipe.ingredients || '');
+    }
+  }, [recipe?.recipe_details, recipe?.ingredients, isEditing]);
+
   // Helper function to strip ONLY bullets and formatting, preserve numbers
   const stripAllFormatting = (text) => {
     return text
@@ -119,8 +128,7 @@ export const RecipeDetailsModal = ({
   const handleSave = () => {
     if (onSave) {
       // Save both ingredients and recipe details
-      console.log('Saving ingredients:', ingredients);
-      console.log('Saving recipe details:', recipeDetails);
+
       onSave({ ingredients, recipeDetails });
       // Stay in the modal but exit edit mode to show the saved state
       setIsEditing(false);
@@ -316,7 +324,7 @@ export const RecipeDetailsModal = ({
                   fontSize: '14px',
                   color: '#374151'
                 }}>
-                  {recipe.ingredients || 'No ingredients listed'}
+                  {ingredients || 'No ingredients listed'}
                 </div>
               )}
             </div>

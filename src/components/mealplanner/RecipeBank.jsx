@@ -7,7 +7,7 @@ import { UI_ICONS } from '@/constants/CategoryConstants';
 import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
 
 export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, user }) {
-  const [newRecipe, setNewRecipe] = useState({ name: '', ingredients: '', category: 'chicken' });
+  const [newRecipe, setNewRecipe] = useState({ name: '', content: '', category: 'chicken' });
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -18,7 +18,111 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const nameInputRef = useRef(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, recipe: null });
   const [recipeDetailsModal, setRecipeDetailsModal] = useState({ isOpen: false, recipe: null });
+  const [formatType, setFormatType] = useState('empty');
+  const [previewData, setPreviewData] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [recipeDetailsLoading, setRecipeDetailsLoading] = useState(false);
+
+  // Format detection function
+  const detectInputType = (name, content) => {
+    if (!name.trim() && !content.trim()) return 'empty';
+    if (!content.trim() && name.trim()) return 'ai-generate';
+
+    const hasInstructionHeaders = /\b(instructions?|directions?|method|steps?):/i.test(content);
+    const hasIngredientHeaders = /\b(ingredients?):/i.test(content);
+    return hasInstructionHeaders || hasIngredientHeaders ? 'full' : 'simple';
+  };
+
+  // Parse recipe content using the same logic as recipe details modal
+  const parseRecipeContent = (text) => {
+    if (!text) return { ingredients: [], instructions: [] };
+
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    const ingredients = [];
+    const instructions = [];
+
+    let inInstructionsSection = false;
+
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase().trim();
+
+      // Check if we've hit the instructions section
+      if (lowerLine === 'instructions' ||
+          lowerLine === 'instructions:' ||
+          lowerLine === 'directions' ||
+          lowerLine === 'directions:' ||
+          lowerLine === 'method' ||
+          lowerLine === 'method:' ||
+          lowerLine === 'steps' ||
+          lowerLine === 'steps:') {
+        inInstructionsSection = true;
+        continue; // Skip the header itself
+      }
+
+      // Skip empty lines
+      if (line.length < 2) continue;
+
+      if (inInstructionsSection) {
+        // Everything after "Instructions" goes to instructions
+        instructions.push(line);
+      } else {
+        // Everything before "Instructions" goes to ingredients
+        // Only skip the main recipe title and "Ingredients:" header
+        const isMainRecipeTitle = line === lines[0] && !lowerLine.includes('cup') && !lowerLine.includes('tsp') &&
+                                 !lowerLine.includes('tbsp') && !lowerLine.includes('oz') && !lowerLine.includes('lb');
+
+        if (!isMainRecipeTitle &&
+            lowerLine !== 'ingredients' &&
+            lowerLine !== 'ingredients:') {
+          ingredients.push(line);
+        }
+      }
+    }
+
+    return { ingredients, instructions };
+  };
+
+  // Extract ingredient names without quantities for simple ingredients field
+  const extractIngredientNames = (ingredients) => {
+    return ingredients.map(ingredient => {
+      // Skip subheaders (lines ending with colon that don't contain measurements)
+      const isSubheader = ingredient.endsWith(':') &&
+                         !ingredient.toLowerCase().includes('cup') &&
+                         !ingredient.toLowerCase().includes('tsp') &&
+                         !ingredient.toLowerCase().includes('tbsp') &&
+                         !ingredient.toLowerCase().includes('oz') &&
+                         !ingredient.toLowerCase().includes('lb') &&
+                         !ingredient.toLowerCase().includes('taste') &&
+                         !ingredient.toLowerCase().includes('tablespoon') &&
+                         !ingredient.toLowerCase().includes('teaspoon');
+
+      if (isSubheader) {
+        return null; // Skip subheaders in simple ingredients list
+      }
+
+      // Extract ingredient name by removing quantities and measurements
+      let name = ingredient;
+
+      // Remove quantities at the beginning (numbers, fractions, ranges)
+      name = name.replace(/^\d+[\s\-\/]*\d*[\s\-]*(?:to\s+\d+[\s\-\/]*\d*)?[\s\-]*/i, ''); // 1, 1/2, 1-2, 3-4, 1 to 2
+      name = name.replace(/^[\d\-\/]+[\s\-]*/i, ''); // Any remaining number patterns
+
+      // Remove measurements and size descriptors
+      name = name.replace(/^(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|large|medium|small|inch|inches?)[\s\-]+/i, '');
+      name = name.replace(/^(?:lb|pound)[\s\-]+/i, '');
+
+      // Remove size/quantity descriptors that might come after numbers
+      name = name.replace(/^(?:large|medium|small|thin|thick|whole|half|quarter)[\s\-]+/i, '');
+
+      // Remove parenthetical descriptions but keep the main ingredient
+      name = name.replace(/\s*\([^)]*\)\s*/g, ' ');
+
+      // Clean up extra spaces and trim
+      name = name.replace(/\s+/g, ' ').trim();
+
+      return name;
+    }).filter(name => name && name.length > 0); // Remove null/empty entries
+  };
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -79,6 +183,28 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
     loadRecipes();
   }, [setRecipeBank, user]);
 
+  // Update format type and preview when input changes
+  useEffect(() => {
+    const currentFormatType = detectInputType(newRecipe.name, newRecipe.content);
+    setFormatType(currentFormatType);
+
+    // Generate preview data based on format type
+    if (currentFormatType === 'simple' && newRecipe.content.trim()) {
+      // Simple ingredients - split by comma
+      const ingredients = newRecipe.content.split(',').map(item => item.trim()).filter(item => item);
+      setPreviewData({ ingredients, instructions: [] });
+      setShowPreview(true);
+    } else if (currentFormatType === 'full' && newRecipe.content.trim()) {
+      // Full recipe - parse using existing logic
+      const parsed = parseRecipeContent(newRecipe.content);
+      setPreviewData(parsed);
+      setShowPreview(true);
+    } else {
+      setPreviewData(null);
+      setShowPreview(false);
+    }
+  }, [newRecipe.name, newRecipe.content]);
+
   const addOrUpdateRecipe = async () => {
     if (!newRecipe.name.trim() || !user) return;
 
@@ -88,16 +214,40 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
     try {
       let finalRecipe = { ...newRecipe };
 
-      if (!finalRecipe.ingredients.trim()) {
+      // Handle different input formats
+      const currentFormatType = detectInputType(finalRecipe.name, finalRecipe.content);
+
+      if (currentFormatType === 'ai-generate') {
+        // AI generation for name-only recipes
         try {
           const aiIngredients = await generateIngredients(finalRecipe.name);
+          // TODO: Add generateFullRecipe function for complete recipe details
           finalRecipe.ingredients = aiIngredients;
+          finalRecipe.recipe_details = null; // For now, until we implement full AI generation
         } catch (error) {
           console.error('Failed to generate ingredients:', error);
           setError('Could not generate ingredients. Please add them manually or try again.');
           return;
         }
+      } else if (currentFormatType === 'simple') {
+        // Simple comma-separated ingredients
+        finalRecipe.ingredients = finalRecipe.content;
+        finalRecipe.recipe_details = null;
+      } else if (currentFormatType === 'full') {
+        // Full recipe format - parse and store both
+        const parsed = parseRecipeContent(finalRecipe.content);
+        // Extract just ingredient names for the simple ingredients field
+        const ingredientNames = extractIngredientNames(parsed.ingredients);
+        finalRecipe.ingredients = ingredientNames.join(', ');
+        finalRecipe.recipe_details = finalRecipe.content;
+      } else {
+        // Empty - should not happen due to validation, but handle gracefully
+        finalRecipe.ingredients = '';
+        finalRecipe.recipe_details = null;
       }
+
+      // Remove the content field before saving to database
+      delete finalRecipe.content;
 
       if (editId !== null) {
         const updated = recipeBank.map((r) =>
@@ -110,7 +260,8 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
           .update({
             name: finalRecipe.name,
             ingredients: finalRecipe.ingredients,
-            category: finalRecipe.category
+            category: finalRecipe.category,
+            recipe_details: finalRecipe.recipe_details
           })
           .eq('id', editId)
           .eq('user_id', user.id);
@@ -124,7 +275,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       } else {
         const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
 
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('recipes')
           .insert([recipeWithId])
           .select();
@@ -138,7 +289,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
         }
       }
 
-      setNewRecipe({ name: '', ingredients: '', category: 'chicken' });
+      setNewRecipe({ name: '', content: '', category: 'chicken' });
     } catch (error) {
       console.error('Recipe operation failed:', error);
       setError('An unexpected error occurred. Please try again.');
@@ -173,7 +324,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
         ? { recipe_details: data }
         : {
             recipe_details: data.recipeDetails,
-            ingredients: data.ingredients
+            ingredients: data.ingredients // Use the manually edited ingredients from the modal
           };
 
       const { error } = await supabase
@@ -188,16 +339,24 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
         return;
       }
 
-      // Update local state
+      // Update local state with the exact data from the modal
+      const updatedRecipe = {
+        ...recipeDetailsModal.recipe,
+        recipe_details: typeof data === 'string' ? data : data.recipeDetails,
+        ingredients: typeof data === 'string' ? recipeDetailsModal.recipe.ingredients : data.ingredients
+      };
+
+
+
       setRecipeBank(prev => prev.map(recipe =>
-        recipe.id === recipeDetailsModal.recipe.id
-          ? {
-              ...recipe,
-              recipe_details: typeof data === 'string' ? data : data.recipeDetails,
-              ingredients: typeof data === 'string' ? recipe.ingredients : data.ingredients
-            }
-          : recipe
+        recipe.id === recipeDetailsModal.recipe.id ? updatedRecipe : recipe
       ));
+
+      // Also update the modal's recipe reference
+      setRecipeDetailsModal(prev => ({
+        ...prev,
+        recipe: updatedRecipe
+      }));
 
       // Don't close the modal - let the user see the saved result
     } catch (error) {
@@ -226,7 +385,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
 
       if (editId === deleteModal.recipe.id) {
         setEditId(null);
-        setNewRecipe({ name: '', ingredients: '', category: 'chicken' });
+        setNewRecipe({ name: '', content: '', category: 'chicken' });
       }
 
       closeDeleteModal();
@@ -238,8 +397,11 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
 
   const editRecipe = (id) => {
     const recipe = recipeBank.find((r) => r.id === id);
-    setNewRecipe(recipe);
+    // Convert back to content format for editing
+    const content = recipe.recipe_details || recipe.ingredients || '';
+    setNewRecipe({ name: recipe.name, content: content, category: recipe.category });
     setEditId(id);
+    nameInputRef.current?.focus();
   };
 
   const toggleCategoryCollapse = (category) => {
@@ -278,73 +440,256 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       )}
 
   {/* Recipe Input Form */}
-  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-    <input
-      ref={nameInputRef}
-      placeholder="Recipe name"
-      value={newRecipe.name}
-      onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
-      style={{
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        width: '200px',
-        fontSize: '14px',
-        outline: 'none'
-      }}
-    />
-    <input
-      placeholder="Ingredients (comma separated)"
-      value={newRecipe.ingredients}
-      onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
-      style={{
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        width: '300px',
-        fontSize: '14px',
-        outline: 'none'
-      }}
-    />
-    <select
-      value={newRecipe.category}
-      onChange={(e) => setNewRecipe({ ...newRecipe, category: e.target.value })}
-      style={{
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        fontSize: '14px',
-        outline: 'none',
-        backgroundColor: 'white'
-      }}
-    >
-      <option value="chicken">Chicken</option>
-      <option value="beef">Beef</option>
-      <option value="turkey">Turkey</option>
-      <option value="other">Other</option>
-    </select>
-    <button
-      onClick={addOrUpdateRecipe}
-      disabled={loading}
-      style={{
-        padding: '8px 16px',
-        backgroundColor: 'transparent',
-        color: '#374151',
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        fontSize: '14px',
-        cursor: loading ? 'not-allowed' : 'pointer',
-        opacity: loading ? 0.6 : 1,
+  <div style={{ marginBottom: '16px' }}>
+    {/* First Row: Name, Category, Button */}
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <input
+        ref={nameInputRef}
+        placeholder="Recipe name"
+        value={newRecipe.name}
+        onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
+        style={{
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          padding: '8px 12px',
+          width: '200px',
+          fontSize: '14px',
+          outline: 'none'
+        }}
+      />
+      <select
+        value={newRecipe.category}
+        onChange={(e) => setNewRecipe({ ...newRecipe, category: e.target.value })}
+        style={{
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          padding: '8px 12px',
+          fontSize: '14px',
+          outline: 'none',
+          backgroundColor: 'white'
+        }}
+      >
+        <option value="chicken">Chicken</option>
+        <option value="beef">Beef</option>
+        <option value="turkey">Turkey</option>
+        <option value="other">Other</option>
+      </select>
+      <button
+        onClick={addOrUpdateRecipe}
+        disabled={loading}
+        style={{
+          padding: '8px 16px',
+          backgroundColor: 'transparent',
+          color: '#374151',
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          fontSize: '14px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.6 : 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {loading && <LoadingSpinner size="sm" />}
+        {editId !== null ? 'Save Changes' : '+ Add Recipe'}
+      </button>
+    </div>
+
+    {/* Second Row: Content Textarea with Format Indicator */}
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <textarea
+        placeholder={`Enter ingredients OR full recipe details:
+
+Simple ingredients:
+chicken breast, rice, vegetables, olive oil
+
+Full recipe format:
+Ingredients:
+- 2 chicken breasts
+- 1 cup jasmine rice
+- 2 cups mixed vegetables
+
+Instructions:
+1. Season and cook chicken...
+2. Prepare rice according to package...`}
+        value={newRecipe.content}
+        onChange={(e) => setNewRecipe({ ...newRecipe, content: e.target.value })}
+        style={{
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          padding: '12px',
+          width: '600px',
+          maxWidth: 'calc(100% - 24px)',
+          fontSize: '14px',
+          outline: 'none',
+          resize: 'vertical',
+          minHeight: '80px',
+          fontFamily: 'inherit',
+          display: 'block'
+        }}
+      />
+
+      {/* Format Indicator */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: '500',
+        backgroundColor: formatType === 'empty' ? '#f3f4f6' :
+                        formatType === 'ai-generate' ? '#fef3c7' :
+                        formatType === 'simple' ? '#dbeafe' :
+                        formatType === 'full' ? '#d1fae5' : '#f3f4f6',
+        color: formatType === 'empty' ? '#6b7280' :
+               formatType === 'ai-generate' ? '#92400e' :
+               formatType === 'simple' ? '#1e40af' :
+               formatType === 'full' ? '#065f46' : '#6b7280',
         display: 'flex',
         alignItems: 'center',
         gap: '4px',
-        whiteSpace: 'nowrap'
-      }}
-    >
-      {loading && <LoadingSpinner size="sm" />}
-      {editId !== null ? 'Save Changes' : '+ Add Recipe'}
-    </button>
+        zIndex: 1000,
+        pointerEvents: 'none',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+      }}>
+        {formatType === 'empty' && '📝 Enter recipe details'}
+        {formatType === 'ai-generate' && '🤖 AI will generate full recipe'}
+        {formatType === 'simple' && '🔤 Simple ingredient list'}
+        {formatType === 'full' && '📋 Full recipe format'}
+        {loading && '⏳ Generating...'}
+      </div>
+    </div>
   </div>
+
+  {/* Preview Section */}
+  {showPreview && previewData && (
+    <div style={{
+      marginBottom: '16px',
+      padding: '12px',
+      backgroundColor: '#f9fafb',
+      borderRadius: '6px',
+      border: '1px solid #e5e7eb'
+    }}>
+      <h4 style={{
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: '8px',
+        margin: 0
+      }}>
+        Preview:
+      </h4>
+
+      {/* Preview Ingredients */}
+      {previewData.ingredients.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <h5 style={{
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#111827',
+            marginBottom: '4px',
+            margin: 0
+          }}>
+            Ingredients:
+          </h5>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {previewData.ingredients.map((ingredient, idx) => {
+              // Check if this line is a subheader
+              const isSubheader = ingredient.endsWith(':') &&
+                                !ingredient.toLowerCase().includes('cup') &&
+                                !ingredient.toLowerCase().includes('tsp') &&
+                                !ingredient.toLowerCase().includes('tbsp') &&
+                                !ingredient.toLowerCase().includes('oz') &&
+                                !ingredient.toLowerCase().includes('lb') &&
+                                !ingredient.toLowerCase().includes('taste') &&
+                                !ingredient.toLowerCase().includes('tablespoon') &&
+                                !ingredient.toLowerCase().includes('teaspoon');
+
+              return (
+                <li key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  marginTop: isSubheader ? '8px' : '0',
+                  fontSize: '13px'
+                }}>
+                  {!isSubheader && (
+                    <span style={{ color: '#6b7280', marginRight: '6px', marginTop: '2px' }}>•</span>
+                  )}
+                  <span style={{
+                    fontWeight: isSubheader ? '600' : 'normal',
+                    color: isSubheader ? '#374151' : 'inherit'
+                  }}>
+                    {ingredient}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Preview Instructions */}
+      {previewData.instructions.length > 0 && (
+        <div>
+          <h5 style={{
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#111827',
+            marginBottom: '4px',
+            margin: 0
+          }}>
+            Instructions:
+          </h5>
+          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {previewData.instructions.map((instruction, idx) => {
+              const isInstructionSubheader = instruction.endsWith(':');
+              const inlineSubheaderMatch = instruction.match(/^([^:]+):\s*(.+)$/);
+              const hasInlineSubheader = inlineSubheaderMatch && !isInstructionSubheader;
+
+              return (
+                <li key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  marginTop: isInstructionSubheader ? '8px' : '0',
+                  fontSize: '13px'
+                }}>
+                  {!isInstructionSubheader && (
+                    <span style={{
+                      color: '#2563eb',
+                      fontWeight: '500',
+                      marginRight: '8px',
+                      marginTop: '1px',
+                      minWidth: '1rem'
+                    }}>
+                      {previewData.instructions.filter((inst, i) => i <= idx && !inst.endsWith(':')).length}.
+                    </span>
+                  )}
+                  <span style={{
+                    fontWeight: isInstructionSubheader ? '600' : 'normal',
+                    color: isInstructionSubheader ? '#374151' : 'inherit'
+                  }}>
+                    {hasInlineSubheader ? (
+                      <>
+                        <span style={{ fontWeight: '600', color: '#374151' }}>
+                          {inlineSubheaderMatch[1]}:
+                        </span>
+                        <span> {inlineSubheaderMatch[2]}</span>
+                      </>
+                    ) : (
+                      instruction
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+    </div>
+  )}
 
   {/* Search & Filter */}
   <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
