@@ -67,7 +67,8 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       const { data, error } = await supabase
         .from('recipes')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
 
       if (error) {
         console.error('Failed to fetch recipes:', error);
@@ -388,7 +389,9 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
 
 
         ['chicken', 'beef', 'turkey', 'other'].map((cat) => {
-          const filteredByCategory = filteredRecipes.filter((r) => r.category === cat);
+          const filteredByCategory = filteredRecipes
+            .filter((r) => r.category === cat)
+            .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
           if (filteredByCategory.length === 0) return null;
 
           const isCollapsed = collapsedCategories.has(cat);
