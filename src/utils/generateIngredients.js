@@ -8,3 +8,18 @@ export async function generateIngredients(recipeName) {
   const data = await res.json();
   return data.ingredients;
 }
+
+export async function generateFullRecipe(recipeName) {
+  const res = await fetch('/api/generate-full-recipe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipeName }),
+  });
+
+  if (!res.ok) {
+    throw new Error('Failed to generate full recipe');
+  }
+
+  const data = await res.json();
+  return data.recipe;
+}

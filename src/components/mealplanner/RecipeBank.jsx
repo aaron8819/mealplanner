@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, LoadingSpinner, ErrorMessage, RecipeDetailsModal } from '@/components/ui';
-import { generateIngredients } from '@/utils/generateIngredients';
+import { generateIngredients, generateFullRecipe } from '@/utils/generateIngredients';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import { UI_ICONS } from '@/constants/CategoryConstants';
@@ -22,6 +22,8 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const [previewData, setPreviewData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [recipeDetailsLoading, setRecipeDetailsLoading] = useState(false);
+  const [aiGeneratedRecipe, setAiGeneratedRecipe] = useState(null);
+  const [showAiPreview, setShowAiPreview] = useState(false);
 
   // Format detection function
   const detectInputType = (name, content) => {
@@ -205,6 +207,117 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
     }
   }, [newRecipe.name, newRecipe.content]);
 
+  // AI Preview Actions
+  const saveAiGeneratedRecipe = async () => {
+    if (!aiGeneratedRecipe) return;
+
+    setLoading(true);
+    try {
+      const finalRecipe = {
+        ...newRecipe,
+        ingredients: aiGeneratedRecipe.parsedIngredients.join(', '),
+        recipe_details: aiGeneratedRecipe.fullRecipe
+      };
+
+      // Remove content field and save to database
+      delete finalRecipe.content;
+
+      if (editId !== null) {
+        // Update existing recipe
+        const updated = recipeBank.map((r) =>
+          r.id === editId ? { ...finalRecipe, id: editId } : r
+        );
+        setRecipeBank(updated);
+
+        const { error } = await supabase
+          .from('recipes')
+          .update({
+            name: finalRecipe.name,
+            ingredients: finalRecipe.ingredients,
+            category: finalRecipe.category,
+            recipe_details: finalRecipe.recipe_details
+          })
+          .eq('id', editId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Supabase update error:', error);
+          setError('Failed to update recipe. Please try again.');
+          return;
+        }
+        setEditId(null);
+      } else {
+        // Create new recipe
+        const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
+
+        const { error } = await supabase
+          .from('recipes')
+          .insert([recipeWithId])
+          .select();
+
+        if (error) {
+          console.error('❌ Supabase insert error:', error);
+          setError('Failed to add recipe. Please try again.');
+          return;
+        } else {
+          setRecipeBank([...recipeBank, recipeWithId]);
+        }
+      }
+
+      // Clear form and AI preview
+      setNewRecipe({ name: '', content: '', category: 'chicken' });
+      setAiGeneratedRecipe(null);
+      setShowAiPreview(false);
+    } catch (error) {
+      console.error('Recipe save failed:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const regenerateAiRecipe = async () => {
+    if (!newRecipe.name.trim()) return;
+
+    setLoading(true);
+    try {
+      const aiFullRecipe = await generateFullRecipe(newRecipe.name);
+      const parsed = parseRecipeContent(aiFullRecipe);
+      const ingredientNames = extractIngredientNames(parsed.ingredients);
+
+      setAiGeneratedRecipe({
+        fullRecipe: aiFullRecipe,
+        parsedIngredients: ingredientNames,
+        parsedContent: parsed
+      });
+    } catch (error) {
+      console.error('Failed to regenerate recipe:', error);
+      setError('Could not regenerate recipe. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const editAiGeneratedRecipe = () => {
+    if (!aiGeneratedRecipe) return;
+
+    // Populate textarea with generated content for editing
+    setNewRecipe(prev => ({
+      ...prev,
+      content: aiGeneratedRecipe.fullRecipe
+    }));
+
+    // Clear AI preview
+    setAiGeneratedRecipe(null);
+    setShowAiPreview(false);
+  };
+
+  const cancelAiGeneration = () => {
+    setAiGeneratedRecipe(null);
+    setShowAiPreview(false);
+    setNewRecipe({ name: '', content: '', category: 'chicken' });
+  };
+
   const addOrUpdateRecipe = async () => {
     if (!newRecipe.name.trim() || !user) return;
 
@@ -220,13 +333,23 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       if (currentFormatType === 'ai-generate') {
         // AI generation for name-only recipes
         try {
-          const aiIngredients = await generateIngredients(finalRecipe.name);
-          // TODO: Add generateFullRecipe function for complete recipe details
-          finalRecipe.ingredients = aiIngredients;
-          finalRecipe.recipe_details = null; // For now, until we implement full AI generation
+          const aiFullRecipe = await generateFullRecipe(finalRecipe.name);
+          const parsed = parseRecipeContent(aiFullRecipe);
+          const ingredientNames = extractIngredientNames(parsed.ingredients);
+
+          // Store the generated recipe for preview
+          setAiGeneratedRecipe({
+            fullRecipe: aiFullRecipe,
+            parsedIngredients: ingredientNames,
+            parsedContent: parsed
+          });
+          setShowAiPreview(true);
+          setLoading(false);
+          return; // Don't save yet, show preview first
         } catch (error) {
-          console.error('Failed to generate ingredients:', error);
-          setError('Could not generate ingredients. Please add them manually or try again.');
+          console.error('Failed to generate full recipe:', error);
+          setError('Could not generate recipe. Please add ingredients manually or try again.');
+          setLoading(false);
           return;
         }
       } else if (currentFormatType === 'simple') {
@@ -495,6 +618,31 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
         {loading && <LoadingSpinner size="sm" />}
         {editId !== null ? 'Save Changes' : '+ Add Recipe'}
       </button>
+
+      {/* Regenerate button - only show for AI generation */}
+      {formatType === 'ai-generate' && !showAiPreview && (
+        <button
+          onClick={regenerateAiRecipe}
+          disabled={loading || !newRecipe.name.trim()}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: 'transparent',
+            color: '#2563eb',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: (loading || !newRecipe.name.trim()) ? 'not-allowed' : 'pointer',
+            opacity: (loading || !newRecipe.name.trim()) ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {loading && <LoadingSpinner size="sm" />}
+          🔄 Regenerate
+        </button>
+      )}
     </div>
 
     {/* Second Row: Content Textarea with Format Indicator */}
@@ -564,8 +712,198 @@ Instructions:
     </div>
   </div>
 
-  {/* Preview Section */}
-  {showPreview && previewData && (
+  {/* AI Generated Recipe Preview */}
+  {showAiPreview && aiGeneratedRecipe && (
+    <div style={{
+      marginBottom: '16px',
+      padding: '16px',
+      backgroundColor: '#fef3c7',
+      borderRadius: '6px',
+      border: '2px solid #f59e0b'
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '12px'
+      }}>
+        <h4 style={{
+          fontSize: '16px',
+          fontWeight: '600',
+          color: '#92400e',
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          🤖 AI Generated Recipe
+        </h4>
+      </div>
+
+      {/* Generated Recipe Content */}
+      <div style={{
+        backgroundColor: 'white',
+        padding: '12px',
+        borderRadius: '6px',
+        marginBottom: '16px'
+      }}>
+        {/* Ingredients */}
+        {aiGeneratedRecipe.parsedContent.ingredients.length > 0 && (
+          <div style={{ marginBottom: '16px' }}>
+            <h5 style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#111827',
+              marginBottom: '8px',
+              margin: 0
+            }}>
+              Ingredients:
+            </h5>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {aiGeneratedRecipe.parsedContent.ingredients.map((ingredient, idx) => (
+                <li key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  fontSize: '14px'
+                }}>
+                  <span style={{ color: '#6b7280', marginRight: '8px', marginTop: '2px' }}>•</span>
+                  <span>{ingredient}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Instructions */}
+        {aiGeneratedRecipe.parsedContent.instructions.length > 0 && (
+          <div>
+            <h5 style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#111827',
+              marginBottom: '8px',
+              margin: 0
+            }}>
+              Instructions:
+            </h5>
+            <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {aiGeneratedRecipe.parsedContent.instructions.map((instruction, idx) => (
+                <li key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  fontSize: '14px'
+                }}>
+                  <span style={{
+                    color: '#2563eb',
+                    fontWeight: '500',
+                    marginRight: '8px',
+                    marginTop: '1px',
+                    minWidth: '1.5rem'
+                  }}>
+                    {idx + 1}.
+                  </span>
+                  <span>{instruction}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div style={{
+        display: 'flex',
+        gap: '8px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={saveAiGeneratedRecipe}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#059669',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontWeight: '500'
+          }}
+        >
+          {loading && <LoadingSpinner size="sm" />}
+          ✅ Save Recipe
+        </button>
+
+        <button
+          onClick={regenerateAiRecipe}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: 'transparent',
+            color: '#2563eb',
+            border: '1px solid #2563eb',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          {loading && <LoadingSpinner size="sm" />}
+          🔄 Regenerate
+        </button>
+
+        <button
+          onClick={editAiGeneratedRecipe}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          ✏️ Edit
+        </button>
+
+        <button
+          onClick={cancelAiGeneration}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: 'transparent',
+            color: '#ef4444',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          ❌ Cancel
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* Regular Preview Section */}
+  {showPreview && previewData && !showAiPreview && (
     <div style={{
       marginBottom: '16px',
       padding: '12px',
