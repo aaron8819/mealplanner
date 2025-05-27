@@ -3,7 +3,6 @@ import RecipeBank from './RecipeBank';
 import SelectedRecipes from './SelectedRecipes';
 import ShoppingList from './ShoppingList';
 import CustomItemManager from './CustomItemManager';
-import ResetButton from '@/components/ui/ResetButton';
 import { UI_ICONS } from '@/constants/CategoryConstants';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -42,13 +41,6 @@ export default function MealPlanner({ user }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <ResetButton
-  user={user}
-  setSelectedRecipes={setSelectedRecipes}
-  onResetComplete={() => {
-    // Optional: refresh shopping list state, or show a toast
-  }}
-/>
       <RecipeBank
         recipeBank={recipeBank}
         setRecipeBank={setRecipeBank}

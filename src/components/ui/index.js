@@ -5,3 +5,4 @@ export * from './textarea';
 export * from './loading-spinner';
 export * from './error-message';
 export * from './confirmation-dialog';
+export * from './recipe-details-modal';

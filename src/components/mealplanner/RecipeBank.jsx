@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, LoadingSpinner, ErrorMessage } from '@/components/ui';
+import { Button, LoadingSpinner, ErrorMessage, RecipeDetailsModal } from '@/components/ui';
 import { generateIngredients } from '@/utils/generateIngredients';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,6 +17,8 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const searchInputRef = useRef(null);
   const nameInputRef = useRef(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, recipe: null });
+  const [recipeDetailsModal, setRecipeDetailsModal] = useState({ isOpen: false, recipe: null });
+  const [recipeDetailsLoading, setRecipeDetailsLoading] = useState(false);
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -150,6 +152,59 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
 
   const closeDeleteModal = () => {
     setDeleteModal({ isOpen: false, recipe: null });
+  };
+
+  const openRecipeDetailsModal = (recipe) => {
+    setRecipeDetailsModal({ isOpen: true, recipe });
+  };
+
+  const closeRecipeDetailsModal = () => {
+    setRecipeDetailsModal({ isOpen: false, recipe: null });
+  };
+
+  const saveRecipeDetails = async (data) => {
+    if (!user || !recipeDetailsModal.recipe) return;
+
+    setRecipeDetailsLoading(true);
+    try {
+      // Handle both old format (string) and new format (object)
+      const updateData = typeof data === 'string'
+        ? { recipe_details: data }
+        : {
+            recipe_details: data.recipeDetails,
+            ingredients: data.ingredients
+          };
+
+      const { error } = await supabase
+        .from('recipes')
+        .update(updateData)
+        .eq('id', recipeDetailsModal.recipe.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error saving recipe details:', error);
+        setError('Failed to save recipe details. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setRecipeBank(prev => prev.map(recipe =>
+        recipe.id === recipeDetailsModal.recipe.id
+          ? {
+              ...recipe,
+              recipe_details: typeof data === 'string' ? data : data.recipeDetails,
+              ingredients: typeof data === 'string' ? recipe.ingredients : data.ingredients
+            }
+          : recipe
+      ));
+
+      closeRecipeDetailsModal();
+    } catch (error) {
+      console.error('Save recipe details failed:', error);
+      setError('An unexpected error occurred while saving recipe details.');
+    } finally {
+      setRecipeDetailsLoading(false);
+    }
   };
 
   const confirmDeleteRecipe = async () => {
@@ -367,9 +422,9 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
               {!isCollapsed && (
                 <ul className="space-y-1">
                   {filteredByCategory.map((recipe) => (
-                    <li key={recipe.id} className="bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors text-sm">
+                    <li key={recipe.id} className="bg-gray-50 p-3 rounded hover:bg-gray-100 transition-colors text-sm mb-1">
                       {recipe.name}
-                      <span style={{ marginLeft: '8px' }}>
+                      <span style={{ marginLeft: '12px' }}>
                         <button
                           onClick={() => onSelectRecipe(recipe)}
                           style={{
@@ -379,17 +434,49 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
                             color: '#3b82f6',
                             border: '1px solid #d1d5db',
                             borderRadius: '4px',
-                            marginRight: '4px',
+                            marginRight: '2px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '12px',
+                            fontSize: '14px',
                             fontWeight: 'bold',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            lineHeight: '1'
                           }}
                           title="Add to selected recipes"
                         >
                           +
+                        </button>
+                        <button
+                          onClick={() => openRecipeDetailsModal(recipe)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            backgroundColor: 'transparent',
+                            color: '#059669',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '4px',
+                            marginRight: '2px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            position: 'relative'
+                          }}
+                          title="View/Edit full recipe details"
+                        >
+                          <span style={{
+                            display: 'inline-block',
+                            position: 'relative',
+                            top: '2px'
+                          }}>
+                            <UI_ICONS.cookbook style={{
+                              width: '12px',
+                              height: '12px',
+                              display: 'block'
+                            }} />
+                          </span>
                         </button>
                         <button
                           onClick={() => editRecipe(recipe.id)}
@@ -400,7 +487,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
                             color: '#6b7280',
                             border: '1px solid #d1d5db',
                             borderRadius: '4px',
-                            marginRight: '4px',
+                            marginRight: '2px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -495,6 +582,15 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
           </div>
         </div>
       )}
+
+      {/* Recipe Details Modal */}
+      <RecipeDetailsModal
+        isOpen={recipeDetailsModal.isOpen}
+        onClose={closeRecipeDetailsModal}
+        recipe={recipeDetailsModal.recipe}
+        onSave={saveRecipeDetails}
+        loading={recipeDetailsLoading}
+      />
     </div>
   );
 }
