@@ -2,10 +2,45 @@ import { useEffect, useRef, useState } from 'react';
 import { LoadingOverlay } from '@/components/ui';
 import { supabase } from '@/lib/supabaseClient';
 import { UI_ICONS } from '@/constants/CategoryConstants';
+import styles from './SelectedRecipes/SelectedRecipes.module.css';
 
 export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, manualRemovals, user, reloadManualRemovals }) {
   const previousRecipesRef = useRef([]);
   const [loading, setLoading] = useState(true);
+  const [expandedRecipes, setExpandedRecipes] = useState(new Set());
+
+  // Helper function to get category info
+  const getCategoryInfo = (category) => {
+    const categoryMap = {
+      chicken: { icon: '🐔', label: 'Chicken' },
+      beef: { icon: '🐄', label: 'Beef' },
+      turkey: { icon: '🦃', label: 'Turkey' },
+      other: { icon: '🍽️', label: 'Other' }
+    };
+    return categoryMap[category] || categoryMap.other;
+  };
+
+  // Helper function to count ingredients
+  const getIngredientCount = (recipe) => {
+    if (!recipe.ingredients) return 0;
+    const list = Array.isArray(recipe.ingredients)
+      ? recipe.ingredients
+      : recipe.ingredients.split(',');
+    return list.filter(ing => ing.trim()).length;
+  };
+
+  // Toggle expanded state for recipe
+  const toggleExpanded = (recipeId) => {
+    setExpandedRecipes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(recipeId)) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     if (!user) {
@@ -102,10 +137,7 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
       return (
         <span
           key={normalizedName}
-          style={{
-            textDecoration: isRemovedFromThisRecipe ? 'line-through' : 'none',
-            color: isRemovedFromThisRecipe ? '#9ca3af' : 'inherit'
-          }}
+          className={`${styles.ingredientText} ${isRemovedFromThisRecipe ? styles.removed : ''}`}
         >
           {trimmed}
         </span>
@@ -123,54 +155,96 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
 
   return (
     <LoadingOverlay loading={loading} message="Loading selected recipes...">
-      <div className="p-4 bg-white rounded-xl shadow">
-        <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
-          <UI_ICONS.check className="w-6 h-6" />
+      <div className={styles.container}>
+        <h3 className={styles.header}>
+          <UI_ICONS.check className={styles.headerIcon} />
           Selected Recipes
+          {selectedRecipes.length > 0 && (
+            <span className={styles.recipeCount}>({selectedRecipes.length})</span>
+          )}
         </h3>
 
-  {selectedRecipes.length === 0 ? (
-    <p className="text-gray-500 italic">No recipes selected yet. Add one from the Recipe Bank.</p>
-  ) : (
-    <ul className="space-y-1">
-      {selectedRecipes.map((recipe, index) => {
-        const formattedIngredients = formatIngredients(recipe.ingredients, recipe.id);
-        return (
-          <li key={recipe.id || index} className="bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors text-sm">
-            <span className="font-medium">{recipe.name}</span>
-            <span className="text-gray-500 text-xs ml-1">
-              ({formattedIngredients.map((ingredient, idx) => (
-                <span key={idx}>
-                  {ingredient}
-                  {idx < formattedIngredients.length - 1 && ', '}
-                </span>
-              ))})
-            </span>
-            <span style={{ marginLeft: '8px' }}>
-              <button
-                onClick={() => removeRecipe(index)}
-                style={{
-                  width: '24px',
-                  height: '24px',
-                  backgroundColor: 'transparent',
-                  color: '#ef4444',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '4px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
-                title="Remove recipe"
-              >
-                🗑️
-              </button>
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+        {selectedRecipes.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>No recipes selected yet.</p>
+            <p>Add one from the Recipe Bank above!</p>
+          </div>
+        ) : (
+          <ul className={styles.recipeList}>
+            {selectedRecipes.map((recipe, index) => {
+              const categoryInfo = getCategoryInfo(recipe.category);
+              const ingredientCount = getIngredientCount(recipe);
+              const isExpanded = expandedRecipes.has(recipe.id);
+              const formattedIngredients = formatIngredients(recipe.ingredients, recipe.id);
+              const maxVisible = 6;
+              const visibleIngredients = isExpanded ? formattedIngredients : formattedIngredients.slice(0, maxVisible);
+              const hasMore = formattedIngredients.length > maxVisible;
+
+              return (
+                <li key={recipe.id || index} className={styles.recipeCard}>
+                  {/* Recipe Header */}
+                  <div className={styles.recipeHeader}>
+                    <div className={styles.recipeTitle}>
+                      <input
+                        type="checkbox"
+                        checked={true}
+                        readOnly
+                        className={styles.recipeCheckbox}
+                      />
+                      <h4 className={styles.recipeName}>{recipe.name}</h4>
+                    </div>
+                    <button
+                      onClick={() => removeRecipe(index)}
+                      className={styles.removeButton}
+                      title="Remove recipe"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Recipe Metadata */}
+                  <div className={styles.recipeMetadata}>
+                    <div className={styles.categoryBadge}>
+                      <span>{categoryInfo.icon}</span>
+                      <span>{categoryInfo.label}</span>
+                    </div>
+                    <span className={styles.ingredientCount}>
+                      {ingredientCount} ingredients
+                    </span>
+                  </div>
+
+                  {/* Ingredients */}
+                  <div className={styles.ingredientsList}>
+                    {visibleIngredients.map((ingredient, idx) => {
+                      const trimmed = typeof ingredient === 'string' ? ingredient.trim() : ingredient.props?.children?.trim?.() || '';
+                      const normalizedName = trimmed.toLowerCase();
+                      const removedForRecipes = manualRemovals[normalizedName];
+                      const isRemovedFromThisRecipe = removedForRecipes?.has(recipe.id);
+
+                      return (
+                        <span
+                          key={idx}
+                          className={`${styles.ingredientPill} ${isRemovedFromThisRecipe ? styles.removed : ''}`}
+                        >
+                          {ingredient}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Show More/Less Button */}
+                  {hasMore && (
+                    <button
+                      onClick={() => toggleExpanded(recipe.id)}
+                      className={styles.showMoreButton}
+                    >
+                      {isExpanded ? 'Show less' : `Show ${formattedIngredients.length - maxVisible} more`}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </LoadingOverlay>

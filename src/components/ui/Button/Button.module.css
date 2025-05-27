@@ -1,0 +1,160 @@
+/* Button Component Styles */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-fast);
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Size variants */
+.sm {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+}
+
+.md {
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--font-size-sm);
+}
+
+.lg {
+  padding: var(--space-md) var(--space-xl);
+  font-size: var(--font-size-base);
+}
+
+.icon {
+  padding: var(--space-sm);
+  width: 32px;
+  height: 32px;
+}
+
+/* Color variants */
+.primary {
+  background: var(--color-primary-600);
+  color: white;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--color-primary-700);
+}
+
+.secondary {
+  background: var(--color-gray-100);
+  color: var(--color-gray-800);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--color-gray-200);
+}
+
+.outline {
+  background: white;
+  color: var(--color-gray-700);
+  border: 1px solid var(--color-gray-300);
+}
+
+.outline:hover:not(:disabled) {
+  background: var(--color-gray-50);
+  border-color: var(--color-gray-400);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-gray-600);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--color-gray-100);
+}
+
+.success {
+  background: var(--color-success-600);
+  color: white;
+}
+
+.success:hover:not(:disabled) {
+  background: var(--color-success-700);
+}
+
+.danger {
+  background: var(--color-danger-600);
+  color: white;
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--color-danger-700);
+}
+
+.warning {
+  background: var(--color-warning-600);
+  color: white;
+}
+
+.warning:hover:not(:disabled) {
+  background: var(--color-warning-700);
+}
+
+/* Special styles */
+.loading {
+  position: relative;
+}
+
+.loading .content {
+  opacity: 0.7;
+}
+
+.spinner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Icon spacing */
+.hasIcon {
+  gap: var(--space-xs);
+}
+
+.iconLeft {
+  margin-right: var(--space-xs);
+}
+
+.iconRight {
+  margin-left: var(--space-xs);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .sm {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  
+  .lg {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}

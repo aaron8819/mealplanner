@@ -5,6 +5,7 @@ import { supabase } from './lib/supabaseClient';
 import { LoadingSpinner } from './components/ui';
 import { LogOut, RotateCcw } from 'lucide-react';
 import { KeyboardShortcutsHelp } from './components/ui/keyboard-shortcuts-help';
+import styles from './App.module.css';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -52,10 +53,12 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="flex flex-col items-center gap-3">
-          <LoadingSpinner size="lg" />
-          <p className="text-gray-600">Loading session...</p>
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div>
+            <LoadingSpinner size="lg" />
+            <p className={styles.loadingText}>Loading session...</p>
+          </div>
         </div>
       </div>
     );
@@ -63,84 +66,47 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen p-4 bg-gray-100 flex items-center justify-center">
-        <Login onLogin={setUser} />
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <Login onLogin={setUser} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 bg-gray-100">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Meal Planner</h1>
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div className={styles.headerContent}>
+          <h1 className={styles.title}>Meal Planner</h1>
 
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">
-            Welcome, <span className="font-medium text-gray-900">{user.email}</span>
-          </span>
-          <button
-            onClick={handleReset}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: 'transparent',
-              color: '#6b7280',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: '500',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#f9fafb';
-              e.target.style.borderColor = '#6b7280';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.borderColor = '#d1d5db';
-            }}
-            title="Reset all selections and shopping list"
-          >
-            <RotateCcw style={{ width: '16px', height: '16px' }} />
-            Reset
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: 'transparent',
-              color: '#ef4444',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: '500',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#fef2f2';
-              e.target.style.borderColor = '#ef4444';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.borderColor = '#d1d5db';
-            }}
-          >
-            <LogOut style={{ width: '16px', height: '16px' }} />
-            Log out
-          </button>
+          <div className={styles.userSection}>
+            <span className={styles.welcomeText}>
+              Welcome, <span className={styles.userEmail}>{user.email}</span>
+            </span>
+            <button
+              onClick={handleReset}
+              className={styles.resetButton}
+              title="Reset all selections and shopping list"
+            >
+              <RotateCcw style={{ width: '16px', height: '16px' }} />
+              Reset
+            </button>
+            <button
+              onClick={handleLogout}
+              className={styles.logoutButton}
+            >
+              <LogOut style={{ width: '16px', height: '16px' }} />
+              Log out
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <MealPlanner key={mealPlannerKey} user={user} />
-      <KeyboardShortcutsHelp />
+      <main className={styles.main}>
+        <MealPlanner key={mealPlannerKey} user={user} />
+        <KeyboardShortcutsHelp />
+      </main>
     </div>
-
   );
 }

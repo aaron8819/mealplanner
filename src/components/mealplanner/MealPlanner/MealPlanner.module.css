@@ -1,0 +1,68 @@
+/* Main Layout */
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 768px) {
+  .container {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Right Column */
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Component Wrappers */
+.componentWrapper {
+  padding: var(--space-lg);
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  max-width: 800px;
+}
+
+.componentHeader {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-gray-900);
+}
+
+.componentIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 767px) {
+  .container {
+    gap: var(--space-md);
+  }
+  
+  .rightColumn {
+    gap: var(--space-md);
+  }
+  
+  .componentWrapper {
+    padding: var(--space-md);
+    max-width: 100%;
+  }
+  
+  .componentHeader {
+    font-size: var(--font-size-sm);
+  }
+  
+  .componentIcon {
+    width: 18px;
+    height: 18px;
+  }
+}

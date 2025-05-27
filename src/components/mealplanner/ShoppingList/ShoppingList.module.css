@@ -1,0 +1,401 @@
+/* Shopping List Component Styles */
+
+/* Container */
+.container {
+  padding: var(--space-lg);
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  max-width: 800px;
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--color-gray-500);
+  font-style: italic;
+  background: var(--color-gray-25);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-gray-300);
+}
+
+/* Category Section */
+.categorySection {
+  margin-bottom: var(--space-xl);
+  background: var(--color-gray-25);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--color-gray-100);
+}
+
+.categorySection:last-child {
+  margin-bottom: 0;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--color-gray-200);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.categoryHeader:hover {
+  background: var(--color-gray-50);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+  margin: 0 calc(-1 * var(--space-sm)) var(--space-md) calc(-1 * var(--space-sm));
+}
+
+.categoryHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.categoryIcon {
+  width: 22px;
+  height: 22px;
+  color: var(--color-primary-600);
+}
+
+.categoryTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+  margin: 0;
+}
+
+.categoryCount {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-normal);
+  margin-left: var(--space-xs);
+}
+
+.categoryProgress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.progressBar {
+  width: 60px;
+  height: 6px;
+  background: var(--color-gray-200);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-success-500);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.progressText {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  font-weight: var(--font-weight-medium);
+  min-width: 40px;
+  text-align: right;
+}
+
+.collapseIcon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-gray-400);
+  transition: transform var(--transition-fast);
+}
+
+.categorySection.collapsed .collapseIcon {
+  transform: rotate(-90deg);
+}
+
+.categoryContent {
+  transition: all var(--transition-normal);
+  overflow: hidden;
+}
+
+.categorySection.collapsed .categoryContent {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+/* Items List */
+.itemsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Item Card */
+.itemCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: white;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  position: relative;
+  min-height: 52px;
+}
+
+.itemCard:hover {
+  background: var(--color-gray-50);
+  border-color: var(--color-gray-300);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.itemCard.checked {
+  background: var(--color-success-25);
+  border-color: var(--color-success-200);
+  opacity: 0.7;
+}
+
+.itemCard.checked:hover {
+  background: var(--color-success-50);
+  border-color: var(--color-success-300);
+}
+
+/* Item Content */
+.itemContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.itemCheckbox {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.itemCard:hover .itemCheckbox {
+  border-color: var(--color-primary-500);
+}
+
+.itemCard.checked .itemCheckbox {
+  background: var(--color-success-500);
+  border-color: var(--color-success-500);
+  color: white;
+}
+
+.checkIcon {
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  transition: var(--transition-fast);
+}
+
+.itemCard.checked .checkIcon {
+  opacity: 1;
+}
+
+.itemText {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-900);
+  margin: 0;
+  word-wrap: break-word;
+  transition: var(--transition-fast);
+}
+
+.itemCard.checked .itemName {
+  text-decoration: line-through;
+  color: var(--color-gray-500);
+}
+
+/* Item Quantity */
+.itemQuantity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.quantityBadge {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  min-width: 24px;
+  text-align: center;
+  transition: var(--transition-fast);
+}
+
+.itemCard.checked .quantityBadge {
+  background: var(--color-gray-100);
+  color: var(--color-gray-500);
+}
+
+/* Action Buttons */
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  opacity: 0;
+  transition: var(--transition-fast);
+}
+
+.itemCard:hover .itemActions {
+  opacity: 1;
+}
+
+.actionButton {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-size: var(--font-size-xs);
+}
+
+.decrementButton {
+  background: var(--color-warning-100);
+  color: var(--color-warning-700);
+}
+
+.decrementButton:hover {
+  background: var(--color-warning-200);
+  transform: scale(1.1);
+}
+
+.removeButton {
+  background: var(--color-danger-100);
+  color: var(--color-danger-700);
+}
+
+.removeButton:hover {
+  background: var(--color-danger-200);
+  transform: scale(1.1);
+}
+
+/* Category-specific styling */
+.categorySection[data-category="produce"] .categoryIcon {
+  color: var(--color-success-600);
+}
+
+.categorySection[data-category="meat"] .categoryIcon {
+  color: var(--color-danger-600);
+}
+
+.categorySection[data-category="dairy"] .categoryIcon {
+  color: var(--color-warning-600);
+}
+
+.categorySection[data-category="pantry"] .categoryIcon {
+  color: var(--color-gray-600);
+}
+
+.categorySection[data-category="non-perishable"] .categoryIcon {
+  color: var(--color-purple-600);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .container {
+    max-width: 100%;
+    padding: var(--space-md);
+  }
+
+  .itemsList {
+    grid-template-columns: 1fr;
+    gap: var(--space-xs);
+  }
+
+  .itemCard {
+    padding: var(--space-sm);
+    min-height: 50px;
+  }
+
+  .itemContent {
+    gap: var(--space-sm);
+  }
+
+  .itemName {
+    font-size: var(--font-size-xs);
+  }
+
+  .quantityBadge {
+    font-size: 10px;
+    padding: 2px var(--space-xs);
+  }
+
+  .actionButton {
+    width: 24px;
+    height: 24px;
+  }
+
+  .itemActions {
+    opacity: 1; /* Always show on mobile */
+  }
+
+  .categoryHeader {
+    margin-bottom: var(--space-sm);
+  }
+
+  .categoryTitle {
+    font-size: var(--font-size-base);
+  }
+
+  .categoryIcon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Animation for checking items */
+@keyframes checkBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.itemCard.checked .itemCheckbox {
+  animation: checkBounce 0.3s ease-out;
+}
+
+/* Smooth transitions for quantity changes */
+.quantityBadge {
+  transition: all var(--transition-fast);
+}
+
+.quantityBadge.updating {
+  transform: scale(1.2);
+  background: var(--color-primary-200);
+}

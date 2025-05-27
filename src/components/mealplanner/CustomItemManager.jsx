@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { LoadingSpinner, ErrorMessage } from '@/components/ui';
+import styles from './CustomItemManager/CustomItemManager.module.css';
 
 export default function CustomItemManager({ user, customItems, setCustomItems }) {
   const [customName, setCustomName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [removingItems, setRemovingItems] = useState(new Set());
+  const [showSuccess, setShowSuccess] = useState(false);
+  const inputRef = useRef(null);
 
   // ✅ Fetch custom items
   useEffect(() => {
@@ -60,6 +64,15 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
       } else {
         setCustomItems(prev => [...prev, ...data]);
         setCustomName('');
+
+        // Show success feedback
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 1000);
+
+        // Focus input for continued adding
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
       }
     } catch (error) {
       console.error('Add custom item failed:', error);
@@ -86,26 +99,50 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
   };
 
 
-  // ✅ Delete item
+  // ✅ Delete item with animation
   const deleteCustomItem = async (index) => {
     const item = customItems[index];
     if (!item?.id || !user) return;
 
-    const { error } = await supabase
-      .from('shopping_items')
-      .delete()
-      .eq('id', item.id)
-      .eq('user_id', user.id);
+    // Add to removing set for animation
+    setRemovingItems(prev => new Set([...prev, item.id]));
 
-    if (error) {
-      console.error('Error deleting custom item:', error);
-    } else {
-      setCustomItems(customItems.filter((_, i) => i !== index));
+    // Wait for animation
+    setTimeout(async () => {
+      const { error } = await supabase
+        .from('shopping_items')
+        .delete()
+        .eq('id', item.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting custom item:', error);
+        // Remove from removing set on error
+        setRemovingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(item.id);
+          return newSet;
+        });
+      } else {
+        setCustomItems(customItems.filter((_, i) => i !== index));
+        setRemovingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(item.id);
+          return newSet;
+        });
+      }
+    }, 200);
+  };
+
+  // Focus input helper
+  const focusInput = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
   };
 
   return (
-    <div>
+    <div className={styles.container}>
       {error && (
         <ErrorMessage
           message={error}
@@ -114,17 +151,12 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
         />
       )}
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+      {/* Input Section */}
+      <div className={styles.inputSection}>
         <input
-          style={{
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            padding: '8px 12px',
-            width: '300px',
-            fontSize: '14px',
-            outline: 'none'
-          }}
-          placeholder="Add custom items (comma separated)"
+          ref={inputRef}
+          className={`${styles.inputField} ${showSuccess ? styles.successFeedback : ''}`}
+          placeholder="Add custom items (comma separated)..."
           value={customName}
           onChange={(e) => setCustomName(e.target.value)}
           disabled={loading}
@@ -137,74 +169,52 @@ export default function CustomItemManager({ user, customItems, setCustomItems })
         />
         <button
           onClick={addCustomItem}
-          disabled={loading}
-          style={{
-            padding: '8px 12px',
-            backgroundColor: 'transparent',
-            color: '#374151',
-            border: '1px solid #d1d5db',
-            borderRadius: '4px',
-            fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            whiteSpace: 'nowrap'
-          }}
+          disabled={loading || !customName.trim()}
+          className={`${styles.button} ${styles.addButton}`}
         >
           {loading && <LoadingSpinner size="sm" />}
-          + Add
+          ➕ Add
         </button>
         <button
           onClick={resetCustomItems}
-          disabled={loading}
-          style={{
-            padding: '8px 12px',
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '4px',
-            fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            whiteSpace: 'nowrap'
-          }}
+          disabled={loading || customItems.length === 0}
+          className={`${styles.button} ${styles.resetButton}`}
         >
           Reset
         </button>
       </div>
 
-
-      {customItems.length > 0 && (
-        <ul className="space-y-1">
+      {/* Tags Section */}
+      {customItems.length > 0 ? (
+        <div className={styles.tagsSection}>
           {customItems.map((item, index) => (
-            <li key={item.id || index} className="bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors text-sm">
-              {item.name}
-              <span style={{ marginLeft: '8px' }}>
-                <button
-                  onClick={() => deleteCustomItem(index)}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    backgroundColor: 'transparent',
-                    color: '#ef4444',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '4px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
-                  title="Delete custom item"
-                >
-                  🗑️
-                </button>
-              </span>
-            </li>
+            <div
+              key={item.id || index}
+              className={`${styles.tag} ${removingItems.has(item.id) ? styles.removing : ''}`}
+            >
+              <span className={styles.tagText}>{item.name}</span>
+              <button
+                onClick={() => deleteCustomItem(index)}
+                className={styles.tagRemove}
+                title={`Remove ${item.name}`}
+              >
+                ×
+              </button>
+            </div>
           ))}
-        </ul>
+          <div
+            className={styles.addMorePrompt}
+            onClick={focusInput}
+            title="Click to add more items"
+          >
+            + Add more...
+          </div>
+        </div>
+      ) : (
+        <div className={styles.emptyState}>
+          <p>No custom items added yet.</p>
+          <p>Add items like "milk, bread, eggs" above!</p>
+        </div>
       )}
     </div>
   );

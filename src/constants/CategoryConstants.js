@@ -13,7 +13,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  ListPlus
 } from 'lucide-react';
 
 export const CATEGORY_ORDER = [
@@ -42,7 +43,8 @@ export const UI_ICONS = {
   close: X,
   chevronDown: ChevronDown,
   chevronRight: ChevronRight,
-  cookbook: BookOpen
+  cookbook: BookOpen,
+  customItems: ListPlus
 };
 
 export const CATEGORY_KEYWORDS = {

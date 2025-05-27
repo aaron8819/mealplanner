@@ -5,7 +5,6 @@ import { classifyIngredient } from '@/constants/CategoryConstants';
 export function useShoppingData({ selectedRecipes, customItems, user, manualRemovals, setManualRemovals }) {
   const [persistedItems, setPersistedItems] = useState([]);
   const [dismissedItems, setDismissedItems] = useState({});
-  const [clickTimestamps, setClickTimestamps] = useState({});
   const [lastSyncedRecipes, setLastSyncedRecipes] = useState([]);
 
   const rawIngredientCount = {};
@@ -140,82 +139,80 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
 
 
 
-  // Handle user click (single or double)
+  // Handle item check/uncheck (single click)
   const handleItemClick = async (name) => {
-    const now = Date.now();
-    const lastClick = clickTimestamps[name] || 0;
+    setDismissedItems((prev) => ({
+      ...prev,
+      [name]: prev[name] === 'checked' ? undefined : 'checked'
+    }));
+  };
 
-    if (now - lastClick < 500) {
-      // Double click - remove or reduce quantity
-      const currentCount = rawIngredientCount[name] || 0;
+  // Reduce quantity by 1
+  const handleReduceQuantity = async (name) => {
+    const currentCount = rawIngredientCount[name] || 0;
 
-      if (currentCount > 1) {
-        // If quantity > 1, reduce by 1 (remove from one recipe)
-        const recipesWithItem = Array.from(ingredientToRecipes[name] || []);
-        const currentRemovals = manualRemovals[name] || new Set();
+    if (currentCount > 1) {
+      // If quantity > 1, reduce by 1 (remove from one recipe)
+      const recipesWithItem = Array.from(ingredientToRecipes[name] || []);
+      const currentRemovals = manualRemovals[name] || new Set();
 
-        // Find the first recipe that hasn't been removed yet
-        const recipeToRemove = recipesWithItem.find(recipeId => !currentRemovals.has(recipeId));
+      // Find the first recipe that hasn't been removed yet
+      const recipeToRemove = recipesWithItem.find(recipeId => !currentRemovals.has(recipeId));
 
-        if (recipeToRemove) {
-          const newRemovals = new Set([...currentRemovals, recipeToRemove]);
+      if (recipeToRemove) {
+        const newRemovals = new Set([...currentRemovals, recipeToRemove]);
 
-          setManualRemovals((prev) => ({
-            ...prev,
-            [name]: newRemovals,
-          }));
+        setManualRemovals((prev) => ({
+          ...prev,
+          [name]: newRemovals,
+        }));
 
-          const insert = {
-            user_id: user.id,
-            ingredient: name,
-            recipe_id: recipeToRemove,
-          };
+        const insert = {
+          user_id: user.id,
+          ingredient: name,
+          recipe_id: recipeToRemove,
+        };
 
-          await supabase
-            .from('manual_removals')
-            .upsert([insert], { onConflict: 'user_id,ingredient,recipe_id' });
-        }
-      } else {
-        // If quantity = 1, remove completely
-        const recipesWithItem = Array.from(ingredientToRecipes[name] || []);
-        if (recipesWithItem.length > 0) {
-          const newRemovals = new Set([...(manualRemovals[name] || []), ...recipesWithItem]);
-
-          setManualRemovals((prev) => ({
-            ...prev,
-            [name]: newRemovals,
-          }));
-
-          const inserts = recipesWithItem.map((recipe_id) => ({
-            user_id: user.id,
-            ingredient: name,
-            recipe_id,
-          }));
-
-          await supabase
-            .from('manual_removals')
-            .upsert(inserts, { onConflict: 'user_id,ingredient,recipe_id' });
-        }
-
-        // Also remove from custom items if it exists
-        setDismissedItems((prev) => ({ ...prev, [name]: 'removed' }));
-
-        const match = persistedItems.find((item) => item.name === name);
-        if (match) {
-          const { error } = await supabase.from('shopping_items').delete().eq('id', match.id).eq('user_id', user.id);
-          if (error) console.error(`❌ Delete error for "${name}":`, error);
-          else {
-            setPersistedItems((prev) => prev.filter((item) => item.id !== match.id));
-          }
-        }
+        await supabase
+          .from('manual_removals')
+          .upsert([insert], { onConflict: 'user_id,ingredient,recipe_id' });
       }
-    } else {
-      // Single click - just mark as checked
-      setDismissedItems((prev) => ({
+    }
+  };
+
+  // Remove item completely
+  const handleRemoveItem = async (name) => {
+    // Remove from all recipes
+    const recipesWithItem = Array.from(ingredientToRecipes[name] || []);
+    if (recipesWithItem.length > 0) {
+      const newRemovals = new Set([...(manualRemovals[name] || []), ...recipesWithItem]);
+
+      setManualRemovals((prev) => ({
         ...prev,
-        [name]: prev[name] === 'checked' ? undefined : 'checked'
+        [name]: newRemovals,
       }));
-      setClickTimestamps((prev) => ({ ...prev, [name]: now }));
+
+      const inserts = recipesWithItem.map((recipe_id) => ({
+        user_id: user.id,
+        ingredient: name,
+        recipe_id,
+      }));
+
+      await supabase
+        .from('manual_removals')
+        .upsert(inserts, { onConflict: 'user_id,ingredient,recipe_id' });
+    }
+
+    // Also remove from custom items if it exists
+    setDismissedItems((prev) => ({ ...prev, [name]: 'removed' }));
+
+    const match = persistedItems.find((item) => item.name === name);
+    if (match) {
+      const { error } = await supabase.from('shopping_items').delete().eq('id', match.id).eq('user_id', user.id);
+      if (error) console.error(`❌ Delete error for "${name}":`, error);
+      else {
+        setPersistedItems((prev) => prev.filter((item) => item.id !== match.id));
+      }
     }
   };
 
@@ -286,6 +283,8 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
   return {
     categorizedIngredients: categorized,
     handleItemClick,
+    handleReduceQuantity,
+    handleRemoveItem,
     dismissedItems,
     currentIngredientNames,
   };

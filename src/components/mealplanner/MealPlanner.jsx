@@ -5,6 +5,7 @@ import ShoppingList from './ShoppingList';
 import CustomItemManager from './CustomItemManager';
 import { UI_ICONS } from '@/constants/CategoryConstants';
 import { supabase } from '@/lib/supabaseClient';
+import styles from './MealPlanner/MealPlanner.module.css';
 
 export default function MealPlanner({ user }) {
   const [recipeBank, setRecipeBank] = useState([]);
@@ -40,7 +41,7 @@ export default function MealPlanner({ user }) {
   }, [user, selectedRecipes]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className={styles.container}>
       <RecipeBank
         recipeBank={recipeBank}
         setRecipeBank={setRecipeBank}
@@ -54,19 +55,19 @@ export default function MealPlanner({ user }) {
         user={user}
       />
 
-      <SelectedRecipes
-        selectedRecipes={selectedRecipes}
-        setSelectedRecipes={setSelectedRecipes}
-        manualRemovals={manualRemovals}
-        user={user}
-        reloadManualRemovals={loadManualRemovals}
-      />
+      <div className={styles.rightColumn}>
+        <SelectedRecipes
+          selectedRecipes={selectedRecipes}
+          setSelectedRecipes={setSelectedRecipes}
+          manualRemovals={manualRemovals}
+          user={user}
+          reloadManualRemovals={loadManualRemovals}
+        />
 
-      <div className="md:col-span-2 space-y-4">
         {/* Custom Item Manager */}
-        <div className="bg-white p-4 rounded-xl shadow">
-          <h3 className="text-md font-semibold mb-2 flex items-center gap-2">
-            <UI_ICONS.add className="w-5 h-5" />
+        <div className={styles.componentWrapper}>
+          <h3 className={styles.componentHeader}>
+            <UI_ICONS.customItems className={styles.componentIcon} />
             Add Custom Item
           </h3>
           <CustomItemManager
@@ -77,9 +78,9 @@ export default function MealPlanner({ user }) {
         </div>
 
         {/* Shopping List with Custom Items */}
-        <div className="bg-white p-4 rounded-xl shadow">
-          <h3 className="text-md font-semibold mb-2 flex items-center gap-2">
-            <UI_ICONS.cart className="w-5 h-5" />
+        <div className={styles.componentWrapper}>
+          <h3 className={styles.componentHeader}>
+            <UI_ICONS.cart className={styles.componentIcon} />
             Shopping List
           </h3>
           <ShoppingList

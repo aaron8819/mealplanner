@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button, LoadingSpinner, ErrorMessage, RecipeDetailsModal } from '@/components/ui';
-import { generateIngredients, generateFullRecipe } from '@/utils/generateIngredients';
+import { useState, useEffect, useRef } from 'react';
+import { LoadingSpinner, ErrorMessage, RecipeDetailsModal, ConfirmModal } from '@/components/ui';
+import { generateFullRecipe } from '@/utils/generateIngredients';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import { UI_ICONS } from '@/constants/CategoryConstants';
 import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
+import styles from './RecipeBank/RecipeBank.module.css';
 
 export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, user }) {
   const [newRecipe, setNewRecipe] = useState({ name: '', content: '', category: 'chicken' });
@@ -24,6 +25,81 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const [recipeDetailsLoading, setRecipeDetailsLoading] = useState(false);
   const [aiGeneratedRecipe, setAiGeneratedRecipe] = useState(null);
   const [showAiPreview, setShowAiPreview] = useState(false);
+  const [addingRecipeId, setAddingRecipeId] = useState(null);
+
+  // Helper function to highlight search terms
+  const highlightSearchTerm = (text, searchTerm) => {
+    if (!searchTerm.trim()) return text;
+
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) => {
+      // Check if this part matches the search term (case insensitive)
+      if (part.toLowerCase() === searchTerm.toLowerCase()) {
+        return <span key={index} className={styles.searchHighlight}>{part}</span>;
+      }
+      return part;
+    });
+  };
+
+  // Helper function to count ingredients
+  const getIngredientCount = (recipe) => {
+    if (!recipe.ingredients) return 0;
+    return recipe.ingredients.split(',').filter(ing => ing.trim()).length;
+  };
+
+  // Enhanced recipe selection with animation
+  const handleSelectRecipe = (recipe) => {
+    setAddingRecipeId(recipe.id);
+    onSelectRecipe(recipe);
+
+    // Clear animation after it completes
+    setTimeout(() => {
+      setAddingRecipeId(null);
+    }, 600);
+  };
+
+  // Clear search function
+  const clearSearch = () => {
+    setSearchTerm('');
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  };
+
+  // Generate contextual placeholder based on recipe name
+  const getContextualPlaceholder = (recipeName) => {
+    if (!recipeName.trim()) {
+      return `Simple ingredients:
+chicken breast, rice, vegetables, olive oil
+
+Full recipe format:
+Ingredients:
+- 2 chicken breasts
+- 1 cup jasmine rice
+- 2 cups mixed vegetables
+
+Instructions:
+1. Season and cook chicken...
+2. Prepare rice according to package...`;
+    }
+
+    return `Enter ingredients for ${recipeName}:
+
+Simple ingredients:
+chicken breast, rice, vegetables, olive oil
+
+Or full recipe format:
+Ingredients:
+- 2 chicken breasts
+- 1 cup jasmine rice
+
+Instructions:
+1. Season and cook chicken...
+2. Prepare rice according to package...`;
+  };
 
   // Format detection function
   const detectInputType = (name, content) => {
@@ -565,10 +641,11 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   });
 
   return (
-    <div className="p-4 bg-white rounded-xl shadow">
-      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-        <UI_ICONS.chef className="w-6 h-6" />
-        Recipe Bank
+    <div className={styles.container}>
+      {/* Add Recipe Section */}
+      <h3 className={styles.header}>
+        <span className={styles.headerIcon}>✨</span>
+        Add Recipe
       </h3>
 
       {error && (
@@ -580,34 +657,20 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       )}
 
   {/* Recipe Input Form */}
-  <div style={{ marginBottom: '16px' }}>
+  <div className={styles.inputForm}>
     {/* First Row: Name, Category, Button */}
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className={styles.inputRow}>
       <input
         ref={nameInputRef}
         placeholder="Recipe name"
         value={newRecipe.name}
         onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
-        style={{
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          padding: '8px 12px',
-          width: '200px',
-          fontSize: '14px',
-          outline: 'none'
-        }}
+        className={styles.nameInput}
       />
       <select
         value={newRecipe.category}
         onChange={(e) => setNewRecipe({ ...newRecipe, category: e.target.value })}
-        style={{
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          padding: '8px 12px',
-          fontSize: '14px',
-          outline: 'none',
-          backgroundColor: 'white'
-        }}
+        className={styles.categorySelect}
       >
         <option value="chicken">Chicken</option>
         <option value="beef">Beef</option>
@@ -617,44 +680,18 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       <button
         onClick={addOrUpdateRecipe}
         disabled={loading}
-        style={{
-          padding: '8px 16px',
-          backgroundColor: 'transparent',
-          color: '#374151',
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          fontSize: '14px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          opacity: loading ? 0.6 : 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          whiteSpace: 'nowrap'
-        }}
+        className={styles.addButton}
       >
         {loading && <LoadingSpinner size="sm" />}
         {editId !== null ? 'Save Changes' : '+ Add Recipe'}
       </button>
 
-      {/* Regenerate button - only show for AI generation */}
-      {formatType === 'ai-generate' && !showAiPreview && (
+      {/* Regenerate button - only show when AI preview is visible */}
+      {showAiPreview && (
         <button
           onClick={regenerateAiRecipe}
-          disabled={loading || !newRecipe.name.trim()}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: 'transparent',
-            color: '#2563eb',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '14px',
-            cursor: (loading || !newRecipe.name.trim()) ? 'not-allowed' : 'pointer',
-            opacity: (loading || !newRecipe.name.trim()) ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            whiteSpace: 'nowrap'
-          }}
+          disabled={loading}
+          className={styles.regenerateButton}
         >
           {loading && <LoadingSpinner size="sm" />}
           🔄 Regenerate
@@ -662,82 +699,33 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
       )}
     </div>
 
-    {/* Second Row: Content Textarea with Format Indicator */}
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <textarea
-        placeholder={`Enter ingredients OR full recipe details:
+    {/* Second Row: Content Textarea with Format Indicator - Progressive Disclosure */}
+    {newRecipe.name.trim() && (
+      <div className={`${styles.textareaContainer} ${newRecipe.name.trim() ? styles.visible : styles.hidden}`}>
+        <div className={styles.textareaLabel}>
+          <span className={styles.labelText}>Enter ingredients OR full recipe details:</span>
+          <div className={`${styles.formatIndicator} ${styles[formatType]}`}>
+            {formatType === 'empty' && '📝 Enter recipe details'}
+            {formatType === 'ai-generate' && '🤖 AI will generate full recipe'}
+            {formatType === 'simple' && '🔤 Simple ingredient list'}
+            {formatType === 'full' && '📋 Full recipe format'}
+            {loading && '⏳ Generating...'}
+          </div>
+        </div>
 
-Simple ingredients:
-chicken breast, rice, vegetables, olive oil
-
-Full recipe format:
-Ingredients:
-- 2 chicken breasts
-- 1 cup jasmine rice
-- 2 cups mixed vegetables
-
-Instructions:
-1. Season and cook chicken...
-2. Prepare rice according to package...`}
-        value={newRecipe.content}
-        onChange={(e) => setNewRecipe({ ...newRecipe, content: e.target.value })}
-        style={{
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          padding: '12px',
-          width: '600px',
-          maxWidth: 'calc(100% - 24px)',
-          fontSize: '14px',
-          outline: 'none',
-          resize: 'vertical',
-          minHeight: '80px',
-          fontFamily: 'inherit',
-          display: 'block'
-        }}
-      />
-
-      {/* Format Indicator */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        padding: '4px 8px',
-        borderRadius: '4px',
-        fontSize: '12px',
-        fontWeight: '500',
-        backgroundColor: formatType === 'empty' ? '#f3f4f6' :
-                        formatType === 'ai-generate' ? '#fef3c7' :
-                        formatType === 'simple' ? '#dbeafe' :
-                        formatType === 'full' ? '#d1fae5' : '#f3f4f6',
-        color: formatType === 'empty' ? '#6b7280' :
-               formatType === 'ai-generate' ? '#92400e' :
-               formatType === 'simple' ? '#1e40af' :
-               formatType === 'full' ? '#065f46' : '#6b7280',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        zIndex: 1000,
-        pointerEvents: 'none',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-      }}>
-        {formatType === 'empty' && '📝 Enter recipe details'}
-        {formatType === 'ai-generate' && '🤖 AI will generate full recipe'}
-        {formatType === 'simple' && '🔤 Simple ingredient list'}
-        {formatType === 'full' && '📋 Full recipe format'}
-        {loading && '⏳ Generating...'}
+        <textarea
+          placeholder={getContextualPlaceholder(newRecipe.name)}
+          value={newRecipe.content}
+          onChange={(e) => setNewRecipe({ ...newRecipe, content: e.target.value })}
+          className={styles.contentTextarea}
+        />
       </div>
-    </div>
+    )}
   </div>
 
   {/* AI Generated Recipe Preview */}
   {showAiPreview && aiGeneratedRecipe && (
-    <div style={{
-      marginBottom: '16px',
-      padding: '16px',
-      backgroundColor: '#fef3c7',
-      borderRadius: '6px',
-      border: '2px solid #f59e0b'
-    }}>
+    <div className={styles.aiPreview}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -758,32 +746,17 @@ Instructions:
       </div>
 
       {/* Generated Recipe Content */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '12px',
-        borderRadius: '6px',
-        marginBottom: '16px'
-      }}>
+      <div className={styles.aiPreviewContent}>
         {/* Ingredients */}
         {aiGeneratedRecipe.parsedContent.ingredients.length > 0 && (
-          <div style={{ marginBottom: '16px' }}>
-            <h5 style={{
-              fontSize: '14px',
-              fontWeight: '600',
-              color: '#111827',
-              marginBottom: '8px',
-              margin: 0
-            }}>
+          <div className={styles.aiPreviewSection}>
+            <h5 className={styles.aiPreviewTitle}>
               Ingredients:
             </h5>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <ul className={styles.aiIngredientsList}>
               {aiGeneratedRecipe.parsedContent.ingredients.map((ingredient, idx) => (
-                <li key={idx} style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  fontSize: '14px'
-                }}>
-                  <span style={{ color: '#6b7280', marginRight: '8px', marginTop: '2px' }}>•</span>
+                <li key={idx} className={styles.aiIngredientItem}>
+                  <span className={styles.aiIngredientBullet}>•</span>
                   <span>{ingredient}</span>
                 </li>
               ))}
@@ -794,29 +767,13 @@ Instructions:
         {/* Instructions */}
         {aiGeneratedRecipe.parsedContent.instructions.length > 0 && (
           <div>
-            <h5 style={{
-              fontSize: '14px',
-              fontWeight: '600',
-              color: '#111827',
-              marginBottom: '8px',
-              margin: 0
-            }}>
+            <h5 className={styles.aiPreviewTitle}>
               Instructions:
             </h5>
-            <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <ol className={styles.aiInstructionsList}>
               {aiGeneratedRecipe.parsedContent.instructions.map((instruction, idx) => (
-                <li key={idx} style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  fontSize: '14px'
-                }}>
-                  <span style={{
-                    color: '#2563eb',
-                    fontWeight: '500',
-                    marginRight: '8px',
-                    marginTop: '1px',
-                    minWidth: '1.5rem'
-                  }}>
+                <li key={idx} className={styles.aiInstructionItem}>
+                  <span className={styles.aiInstructionNumber}>
                     {idx + 1}.
                   </span>
                   <span>{instruction}</span>
@@ -828,28 +785,11 @@ Instructions:
       </div>
 
       {/* Action Buttons */}
-      <div style={{
-        display: 'flex',
-        gap: '8px',
-        flexWrap: 'wrap'
-      }}>
+      <div className={styles.aiPreviewActions}>
         <button
           onClick={saveAiGeneratedRecipe}
           disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#059669',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontWeight: '500'
-          }}
+          className={`${styles.aiActionButton} ${styles.aiSaveButton}`}
         >
           {loading && <LoadingSpinner size="sm" />}
           ✅ Save Recipe
@@ -858,19 +798,7 @@ Instructions:
         <button
           onClick={regenerateAiRecipe}
           disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: 'transparent',
-            color: '#2563eb',
-            border: '1px solid #2563eb',
-            borderRadius: '6px',
-            fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
+          className={`${styles.aiActionButton} ${styles.aiRegenerateButton}`}
         >
           {loading && <LoadingSpinner size="sm" />}
           🔄 Regenerate
@@ -879,19 +807,7 @@ Instructions:
         <button
           onClick={editAiGeneratedRecipe}
           disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: 'transparent',
-            color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
+          className={`${styles.aiActionButton} ${styles.aiEditButton}`}
         >
           ✏️ Edit
         </button>
@@ -899,19 +815,7 @@ Instructions:
         <button
           onClick={cancelAiGeneration}
           disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: 'transparent',
-            color: '#ef4444',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
+          className={`${styles.aiActionButton} ${styles.aiCancelButton}`}
         >
           ❌ Cancel
         </button>
@@ -921,36 +825,18 @@ Instructions:
 
   {/* Regular Preview Section */}
   {showPreview && previewData && !showAiPreview && (
-    <div style={{
-      marginBottom: '16px',
-      padding: '12px',
-      backgroundColor: '#f9fafb',
-      borderRadius: '6px',
-      border: '1px solid #e5e7eb'
-    }}>
-      <h4 style={{
-        fontSize: '14px',
-        fontWeight: '600',
-        color: '#374151',
-        marginBottom: '8px',
-        margin: 0
-      }}>
+    <div className={styles.regularPreview}>
+      <h4 className={styles.regularPreviewTitle}>
         Preview:
       </h4>
 
       {/* Preview Ingredients */}
       {previewData.ingredients.length > 0 && (
-        <div style={{ marginBottom: '12px' }}>
-          <h5 style={{
-            fontSize: '13px',
-            fontWeight: '500',
-            color: '#111827',
-            marginBottom: '4px',
-            margin: 0
-          }}>
+        <div className={styles.regularPreviewSection}>
+          <h5 className={styles.regularPreviewSubtitle}>
             Ingredients:
           </h5>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <ul className={styles.regularIngredientsList}>
             {previewData.ingredients.map((ingredient, idx) => {
               // Check if this line is a subheader
               const isSubheader = ingredient.endsWith(':') &&
@@ -964,19 +850,11 @@ Instructions:
                                 !ingredient.toLowerCase().includes('teaspoon');
 
               return (
-                <li key={idx} style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  marginTop: isSubheader ? '8px' : '0',
-                  fontSize: '13px'
-                }}>
+                <li key={idx} className={`${styles.regularIngredientItem} ${isSubheader ? styles.subheader : ''}`}>
                   {!isSubheader && (
-                    <span style={{ color: '#6b7280', marginRight: '6px', marginTop: '2px' }}>•</span>
+                    <span className={styles.regularIngredientBullet}>•</span>
                   )}
-                  <span style={{
-                    fontWeight: isSubheader ? '600' : 'normal',
-                    color: isSubheader ? '#374151' : 'inherit'
-                  }}>
+                  <span className={`${styles.regularIngredientText} ${isSubheader ? styles.subheader : ''}`}>
                     {ingredient}
                   </span>
                 </li>
@@ -989,46 +867,26 @@ Instructions:
       {/* Preview Instructions */}
       {previewData.instructions.length > 0 && (
         <div>
-          <h5 style={{
-            fontSize: '13px',
-            fontWeight: '500',
-            color: '#111827',
-            marginBottom: '4px',
-            margin: 0
-          }}>
+          <h5 className={styles.regularPreviewSubtitle}>
             Instructions:
           </h5>
-          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <ol className={styles.regularInstructionsList}>
             {previewData.instructions.map((instruction, idx) => {
               const isInstructionSubheader = instruction.endsWith(':');
               const inlineSubheaderMatch = instruction.match(/^([^:]+):\s*(.+)$/);
               const hasInlineSubheader = inlineSubheaderMatch && !isInstructionSubheader;
 
               return (
-                <li key={idx} style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  marginTop: isInstructionSubheader ? '8px' : '0',
-                  fontSize: '13px'
-                }}>
+                <li key={idx} className={`${styles.regularInstructionItem} ${isInstructionSubheader ? styles.subheader : ''}`}>
                   {!isInstructionSubheader && (
-                    <span style={{
-                      color: '#2563eb',
-                      fontWeight: '500',
-                      marginRight: '8px',
-                      marginTop: '1px',
-                      minWidth: '1rem'
-                    }}>
+                    <span className={styles.regularInstructionNumber}>
                       {previewData.instructions.filter((inst, i) => i <= idx && !inst.endsWith(':')).length}.
                     </span>
                   )}
-                  <span style={{
-                    fontWeight: isInstructionSubheader ? '600' : 'normal',
-                    color: isInstructionSubheader ? '#374151' : 'inherit'
-                  }}>
+                  <span className={`${styles.regularInstructionText} ${isInstructionSubheader ? styles.subheader : ''}`}>
                     {hasInlineSubheader ? (
                       <>
-                        <span style={{ fontWeight: '600', color: '#374151' }}>
+                        <span className={styles.inlineSubheader}>
                           {inlineSubheaderMatch[1]}:
                         </span>
                         <span> {inlineSubheaderMatch[2]}</span>
@@ -1046,33 +904,37 @@ Instructions:
     </div>
   )}
 
+  {/* Recipe Bank Section */}
+  <h3 className={`${styles.header} ${styles.recipeBankHeader}`}>
+    <UI_ICONS.chef className={styles.headerIcon} />
+    Recipe Bank
+  </h3>
+
   {/* Search & Filter */}
-  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-    <input
-      ref={searchInputRef}
-      placeholder="Search recipes... (Ctrl+F)"
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      style={{
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        width: '300px',
-        fontSize: '14px',
-        outline: 'none'
-      }}
-    />
+  <div className={styles.searchFilter}>
+    <div className={styles.searchContainer}>
+      <input
+        ref={searchInputRef}
+        placeholder="Search recipes... (Ctrl+F)"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className={styles.searchInput}
+      />
+      {searchTerm && (
+        <button
+          onClick={clearSearch}
+          className={styles.clearSearchButton}
+          title="Clear search"
+          type="button"
+        >
+          ×
+        </button>
+      )}
+    </div>
     <select
       value={categoryFilter}
       onChange={(e) => setCategoryFilter(e.target.value)}
-      style={{
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        fontSize: '14px',
-        outline: 'none',
-        backgroundColor: 'white'
-      }}
+      className={styles.filterSelect}
     >
       <option value="all">All</option>
       <option value="chicken">Chicken</option>
@@ -1084,10 +946,33 @@ Instructions:
 
   {/* Results or Empty State */}
   {filteredRecipes.length === 0 ? (
-    <p className="text-gray-500 italic">No recipes found. Try adding one or adjusting your filters.</p>
+    <div className={styles.emptyState}>
+      <div className={styles.emptyStateTitle}>
+        {searchTerm || categoryFilter !== 'all' ? 'No recipes found' : 'No recipes yet'}
+      </div>
+      <div className={styles.emptyStateSuggestions}>
+        {searchTerm || categoryFilter !== 'all' ? (
+          <>
+            Try adjusting your search:
+            <ul>
+              <li>• Check your spelling</li>
+              <li>• Try different keywords</li>
+              <li>• Clear filters to see all recipes</li>
+            </ul>
+          </>
+        ) : (
+          <>
+            Get started by adding your first recipe above!
+            <ul>
+              <li>• Enter just a recipe name for AI generation</li>
+              <li>• Add simple ingredients separated by commas</li>
+              <li>• Or paste a full recipe with instructions</li>
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
   ) : (
-
-
         ['chicken', 'beef', 'turkey', 'other'].map((cat) => {
           const filteredByCategory = filteredRecipes
             .filter((r) => r.category === cat)
@@ -1097,9 +982,9 @@ Instructions:
           const isCollapsed = collapsedCategories.has(cat);
 
           return (
-            <div key={cat} className="mt-4">
+            <div key={cat} className={styles.categorySection}>
               <h3
-                className="text-lg font-bold capitalize mb-2 cursor-pointer hover:bg-gray-100 p-2 rounded-md transition-colors flex items-center justify-between"
+                className={styles.categoryHeader}
                 onClick={() => toggleCategoryCollapse(cat)}
                 role="button"
                 tabIndex={0}
@@ -1110,112 +995,57 @@ Instructions:
                   }
                 }}
               >
-                <span className="flex items-center gap-2">
+                <span className={styles.categoryTitle}>
                   {cat === 'chicken' && '🐔 '}
                   {cat === 'beef' && '🐄 '}
                   {cat === 'turkey' && '🦃 '}
                   {cat === 'other' && '🍽️ '}
                   {cat}
-                  <span className="text-sm text-gray-500">({filteredByCategory.length})</span>
+                  <span className={styles.categoryCount}>({filteredByCategory.length})</span>
                 </span>
-                <span className="text-gray-400">
-                  {isCollapsed ? <UI_ICONS.chevronRight className="w-4 h-4" /> : <UI_ICONS.chevronDown className="w-4 h-4" />}
+                <span className={styles.categoryChevron}>
+                  {isCollapsed ? <UI_ICONS.chevronRight /> : <UI_ICONS.chevronDown />}
                 </span>
               </h3>
               {!isCollapsed && (
-                <ul className="space-y-1">
+                <ul className={styles.recipeList}>
                   {filteredByCategory.map((recipe) => (
-                    <li key={recipe.id} className="bg-gray-50 p-3 rounded hover:bg-gray-100 transition-colors text-sm mb-1">
-                      {recipe.name}
-                      <span style={{ marginLeft: '12px' }}>
+                    <li key={recipe.id} className={styles.recipeItem}>
+                      <span
+                        className={`${styles.recipeName} ${addingRecipeId === recipe.id ? styles.adding : ''}`}
+                        onClick={() => handleSelectRecipe(recipe)}
+                        title="Click to add to selected recipes"
+                      >
+                        {highlightSearchTerm(recipe.name, searchTerm)}
+                        <span className={styles.recipeMetadata}>
+                          ({getIngredientCount(recipe)} ingredients)
+                        </span>
+                      </span>
+                      <span className={styles.recipeActions}>
                         <button
-                          onClick={() => onSelectRecipe(recipe)}
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            backgroundColor: 'transparent',
-                            color: '#3b82f6',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '4px',
-                            marginRight: '2px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            lineHeight: '1'
-                          }}
+                          onClick={() => handleSelectRecipe(recipe)}
+                          className={`${styles.recipeActionButton} ${styles.add}`}
                           title="Add to selected recipes"
                         >
                           +
                         </button>
                         <button
                           onClick={() => openRecipeDetailsModal(recipe)}
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            backgroundColor: 'transparent',
-                            color: '#059669',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '4px',
-                            marginRight: '2px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            position: 'relative'
-                          }}
+                          className={`${styles.recipeActionButton} ${styles.cookbook}`}
                           title="View/Edit full recipe details"
                         >
-                          <span style={{
-                            display: 'inline-block',
-                            position: 'relative',
-                            top: '2px'
-                          }}>
-                            <UI_ICONS.cookbook style={{
-                              width: '12px',
-                              height: '12px',
-                              display: 'block'
-                            }} />
-                          </span>
+                          <UI_ICONS.cookbook className={styles.cookbookIcon} />
                         </button>
                         <button
                           onClick={() => editRecipe(recipe.id)}
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            backgroundColor: 'transparent',
-                            color: '#6b7280',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '4px',
-                            marginRight: '2px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                          }}
+                          className={`${styles.recipeActionButton} ${styles.edit}`}
                           title="Edit recipe"
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => openDeleteModal(recipe)}
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            backgroundColor: 'transparent',
-                            color: '#ef4444',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                          }}
+                          className={`${styles.recipeActionButton} ${styles.delete}`}
                           title="Delete recipe"
                         >
                           🗑️
@@ -1231,60 +1061,16 @@ Instructions:
       )}
 
       {/* Delete Recipe Modal */}
-      {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={closeDeleteModal}
-          />
-
-          {/* Modal */}
-          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 animate-fade-in">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <UI_ICONS.delete className="w-5 h-5 text-red-600" />
-                </div>
-              </div>
-
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Delete Recipe
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Are you sure you want to delete <strong>"{deleteModal.recipe?.name}"</strong>?
-                  This action cannot be undone and will permanently remove this recipe from your recipe bank.
-                </p>
-
-                <div className="flex gap-3 justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={closeDeleteModal}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={confirmDeleteRecipe}
-                    className="flex items-center gap-2"
-                  >
-                    <UI_ICONS.delete className="w-4 h-4" />
-                    Delete Recipe
-                  </Button>
-                </div>
-              </div>
-
-              <button
-                onClick={closeDeleteModal}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <UI_ICONS.close className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDeleteRecipe}
+        title="Delete Recipe"
+        message={`Are you sure you want to delete "${deleteModal.recipe?.name}"? This action cannot be undone and will permanently remove this recipe from your recipe bank.`}
+        confirmText="🗑️ Delete Recipe"
+        cancelText="Cancel"
+        variant="danger"
+      />
 
       {/* Recipe Details Modal */}
       <RecipeDetailsModal
