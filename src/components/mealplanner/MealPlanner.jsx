@@ -5,6 +5,7 @@ import ShoppingList from './ShoppingList';
 import CustomItemManager from './CustomItemManager';
 import { UI_ICONS } from '@/constants/CategoryConstants';
 import { supabase } from '@/lib/supabaseClient';
+import { migrateShoppingItems, checkMigrationNeeded } from '@/utils/migrateIngredients';
 import styles from './MealPlanner/MealPlanner.module.css';
 
 export default function MealPlanner({ user }) {
@@ -12,6 +13,9 @@ export default function MealPlanner({ user }) {
   const [selectedRecipes, setSelectedRecipes] = useState([]);
   const [customItems, setCustomItems] = useState([]);
   const [manualRemovals, setManualRemovals] = useState({});
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationMessage, setMigrationMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Load manual removals
@@ -36,6 +40,38 @@ export default function MealPlanner({ user }) {
     setManualRemovals(map);
   };
 
+  // Check if migration is needed
+  const checkMigration = async () => {
+    if (!user) return;
+
+    const needed = await checkMigrationNeeded(user.id);
+    setMigrationNeeded(needed);
+  };
+
+  // Run migration
+  const runMigration = async () => {
+    if (!user) return;
+
+    setMigrationLoading(true);
+    setMigrationMessage('');
+
+    try {
+      const result = await migrateShoppingItems(user.id);
+      if (result.success) {
+        setMigrationMessage(`✅ ${result.message}`);
+        setMigrationNeeded(false);
+        // Refresh the page to see changes
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        setMigrationMessage(`❌ Migration failed: ${result.error}`);
+      }
+    } catch (error) {
+      setMigrationMessage(`❌ Migration failed: ${error.message}`);
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
   // Initialize all data from Supabase
   useEffect(() => {
     if (!user) {
@@ -45,6 +81,7 @@ export default function MealPlanner({ user }) {
 
     const initializeData = async () => {
       await loadManualRemovals();
+      await checkMigration();
       setLoading(false);
     };
 
@@ -70,6 +107,29 @@ export default function MealPlanner({ user }) {
 
   return (
     <div className={styles.container}>
+      {/* Migration Banner */}
+      {migrationNeeded && (
+        <div className={styles.migrationBanner}>
+          <div className={styles.migrationContent}>
+            <span className={styles.migrationIcon}>🔄</span>
+            <div className={styles.migrationText}>
+              <strong>Ingredient Normalization Available</strong>
+              <p>We can consolidate duplicate ingredients like "tomato" + "tomatoes" for a cleaner shopping list.</p>
+              {migrationMessage && <p className={styles.migrationMessage}>{migrationMessage}</p>}
+            </div>
+            <button
+              onClick={runMigration}
+              disabled={migrationLoading}
+              className={styles.migrationButton}
+            >
+              {migrationLoading ? 'Migrating...' : 'Fix Duplicates'}
+            </button>
+          </div>
+        </div>
+      )}
+
+
+
       <RecipeBank
         recipeBank={recipeBank}
         setRecipeBank={setRecipeBank}

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { classifyIngredient } from '@/constants/CategoryConstants';
+import { normalizeIngredient } from '@/utils/ingredientNormalizer';
 
 export function useShoppingData({ selectedRecipes, customItems, user, manualRemovals, setManualRemovals }) {
   const [persistedItems, setPersistedItems] = useState([]);
   const [lastSyncedRecipes, setLastSyncedRecipes] = useState([]);
 
+  // Calculate raw ingredient counts using normalization for better deduplication
   const rawIngredientCount = {};
   const ingredientToRecipes = {};
+  const normalizedToOriginal = {}; // Track normalized -> best original name for display
 
   selectedRecipes.forEach((recipe) => {
     const recipeId = recipe.id;
@@ -16,21 +19,36 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
       : recipe.ingredients.split(',');
 
     ingredients.forEach((i) => {
-      const name = i.trim().toLowerCase();
-      if (!name) return;
+      const originalName = i.trim().toLowerCase();
+      const normalizedName = normalizeIngredient(originalName);
+      if (!normalizedName) return;
 
-      const removedFor = manualRemovals[name];
+      // Track the best original name for display (prefer shorter, cleaner versions)
+      if (!normalizedToOriginal[normalizedName] ||
+          originalName.length < normalizedToOriginal[normalizedName].length) {
+        normalizedToOriginal[normalizedName] = originalName;
+      }
+
+      // Check manual removals using normalized name
+      const removedFor = manualRemovals[normalizedName];
       if (removedFor?.has(recipeId)) return;
 
-      rawIngredientCount[name] = (rawIngredientCount[name] || 0) + 1;
-      if (!ingredientToRecipes[name]) ingredientToRecipes[name] = new Set();
-      ingredientToRecipes[name].add(recipeId);
+      rawIngredientCount[normalizedName] = (rawIngredientCount[normalizedName] || 0) + 1;
+      if (!ingredientToRecipes[normalizedName]) ingredientToRecipes[normalizedName] = new Set();
+      ingredientToRecipes[normalizedName].add(recipeId);
     });
   });
 
   customItems.forEach(({ name }) => {
-    const trimmed = name.trim().toLowerCase();
-    if (trimmed) rawIngredientCount[trimmed] = (rawIngredientCount[trimmed] || 0) + 1;
+    const originalName = name.trim().toLowerCase();
+    const normalizedName = normalizeIngredient(originalName);
+    if (normalizedName) {
+      // Track original name for display
+      if (!normalizedToOriginal[normalizedName]) {
+        normalizedToOriginal[normalizedName] = originalName;
+      }
+      rawIngredientCount[normalizedName] = (rawIngredientCount[normalizedName] || 0) + 1;
+    }
   });
 
   const currentIngredientNames = Object.keys(rawIngredientCount);
@@ -93,17 +111,21 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
         }
 
         // Create a map of existing item states (aggregate across duplicates)
+        // Use normalized names for better state preservation across recipe changes
         const existingStates = {};
         existingItems?.forEach(item => {
-          if (!existingStates[item.name]) {
-            existingStates[item.name] = {
+          // Use normalized name if available, fallback to original name
+          const keyName = item.normalized_name || normalizeIngredient(item.name);
+
+          if (!existingStates[keyName]) {
+            existingStates[keyName] = {
               is_checked: false,
               dismissed: false
             };
           }
           // If ANY instance is checked/dismissed, preserve that state
-          if (item.is_checked) existingStates[item.name].is_checked = true;
-          if (item.dismissed) existingStates[item.name].dismissed = true;
+          if (item.is_checked) existingStates[keyName].is_checked = true;
+          if (item.dismissed) existingStates[keyName].dismissed = true;
         });
 
 
@@ -128,7 +150,7 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
           return;
         }
 
-        // Get all current recipe ingredients (deduplicated by name)
+        // Get all current recipe ingredients (deduplicated by normalized name)
         const ingredientMap = {};
         selectedRecipes.forEach((recipe) => {
           console.log('📝 Processing recipe:', recipe.name, 'ID:', recipe.id);
@@ -137,11 +159,17 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
             : recipe.ingredients.split(',');
 
           ingredients.forEach((ingredient) => {
-            const name = ingredient.trim().toLowerCase();
-            if (name && !ingredientMap[name]) {
-              const existingState = existingStates[name];
-              ingredientMap[name] = {
-                name,
+            const originalName = ingredient.trim().toLowerCase();
+            const normalizedName = normalizeIngredient(originalName);
+
+            if (normalizedName && !ingredientMap[normalizedName]) {
+              const existingState = existingStates[normalizedName];
+              // Use the best display name we've tracked
+              const displayName = normalizedToOriginal[normalizedName] || originalName;
+
+              ingredientMap[normalizedName] = {
+                name: displayName, // Store the best original name for display
+                normalized_name: normalizedName, // Store normalized name for matching
                 user_id: user.id,
                 source: 'recipe',
                 recipe_id: recipe.id, // Use the first recipe that contains this ingredient
@@ -196,7 +224,13 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
   const handleItemClick = async (name) => {
     if (!user) return;
 
-    const existingItem = persistedItems.find(item => item.name === name);
+    const normalizedName = normalizeIngredient(name);
+
+    // Find item by normalized name for better matching
+    const existingItem = persistedItems.find(item => {
+      const itemNormalized = item.normalized_name || normalizeIngredient(item.name);
+      return itemNormalized === normalizedName;
+    });
 
     if (existingItem) {
       // Item exists in database - update it
@@ -224,12 +258,12 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
       // Item doesn't exist in database yet - find the recipe item and update it
       console.log('📝 Looking for recipe item to update for:', name);
 
-      // Try to find and update an existing recipe item
+      // Try to find and update an existing recipe item using normalized name
       const { data: existingRecipeItems, error: findError } = await supabase
         .from('shopping_items')
         .select('*')
         .eq('user_id', user.id)
-        .eq('name', name)
+        .eq('normalized_name', normalizedName)
         .eq('source', 'recipe');
 
       if (findError) {
@@ -416,29 +450,35 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
     }
   }, [selectedRecipes, user]);
 
-  // Categorize for UI - use database state
+  // Categorize for UI - use normalized names for logic, display names for UI
   const categorized = {};
-  Object.entries(rawIngredientCount).forEach(([name, count]) => {
-    // Check if item is dismissed in database
-    const persistedItem = persistedItems.find(item => item.name === name);
+  Object.entries(rawIngredientCount).forEach(([normalizedName, count]) => {
+    // Check if item is dismissed in database using normalized name
+    const persistedItem = persistedItems.find(item => {
+      const itemNormalized = item.normalized_name || normalizeIngredient(item.name);
+      return itemNormalized === normalizedName;
+    });
     if (persistedItem?.dismissed) return;
 
-    const category = classifyIngredient(name);
+    // Use the best display name for UI
+    const displayName = normalizedToOriginal[normalizedName] || normalizedName;
+    const category = classifyIngredient(displayName);
     if (!categorized[category]) categorized[category] = [];
-    categorized[category].push({ name, count });
+    categorized[category].push({ name: displayName, count });
   });
 
   Object.values(categorized).forEach((items) =>
     items.sort((a, b) => a.name.localeCompare(b.name))
   );
 
-  // Create dismissedItems object for backward compatibility
+  // Create dismissedItems object for backward compatibility (use display names)
   const dismissedItems = {};
   persistedItems.forEach(item => {
+    const displayName = item.name; // Use the stored display name
     if (item.dismissed) {
-      dismissedItems[item.name] = 'removed';
+      dismissedItems[displayName] = 'removed';
     } else if (item.is_checked) {
-      dismissedItems[item.name] = 'checked';
+      dismissedItems[displayName] = 'checked';
     }
   });
 

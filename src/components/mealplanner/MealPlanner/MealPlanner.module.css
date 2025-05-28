@@ -11,6 +11,87 @@
   }
 }
 
+/* Migration Banner */
+.migrationBanner {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.migrationContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.migrationIcon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.migrationText {
+  flex: 1;
+}
+
+.migrationText strong {
+  display: block;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: #92400e;
+  margin-bottom: var(--space-xs);
+}
+
+.migrationText p {
+  margin: 0;
+  color: #78350f;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.migrationMessage {
+  margin-top: var(--space-xs) !important;
+  font-weight: var(--font-weight-medium);
+}
+
+.migrationButton {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.migrationButton:hover:not(:disabled) {
+  background: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.migrationButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading State */
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-lg);
+}
+
 /* Right Column */
 .rightColumn {
   display: flex;
@@ -47,20 +128,20 @@
   .container {
     gap: var(--space-md);
   }
-  
+
   .rightColumn {
     gap: var(--space-md);
   }
-  
+
   .componentWrapper {
     padding: var(--space-md);
     max-width: 100%;
   }
-  
+
   .componentHeader {
     font-size: var(--font-size-sm);
   }
-  
+
   .componentIcon {
     width: 18px;
     height: 18px;
