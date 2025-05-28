@@ -58,7 +58,7 @@ export const CATEGORY_KEYWORDS = {
   'potato', 'potatoes', 'sweet potato', 'yam', 'yams',
   'tomato', 'tomatoes', 'avocado', 'beet', 'radish', 'turnip',
   'eggplant', 'mushroom', 'mushrooms', 'green bean', 'green beans',
-  'snap pea', 'snow pea', 'asparagus', 'artichoke', 'cilantro',
+  'snap pea', 'snow pea', 'asparagus', 'artichoke', 'cilantro', 'dill',
 
   // Fruits
   'apple', 'apples', 'banana', 'bananas', 'orange', 'oranges',
@@ -92,7 +92,7 @@ export const CATEGORY_KEYWORDS = {
   'fish', 'shellfish', 'scallops',
 
   // Plant-based proteins
-  'tofu', 'tempeh', 'seitan', 'beyond meat', 'impossible meat', 'soy',
+  'tofu', 'tempeh', 'seitan', 'beyond meat', 'impossible meat', 'soy', 'hummus',
 
   // Cheese
   'cheese', 'cheddar', 'mozzarella', 'parmesan', 'feta',
@@ -158,7 +158,7 @@ export const CATEGORY_KEYWORDS = {
 
   // Deli and fresh prepared
   'deli meat', 'pre-made meals', 'rotisserie chicken',
-  'hummus', 'pasta salad', 'coleslaw', 'refrigerated dough',
+  'pasta salad', 'coleslaw', 'refrigerated dough',
 
   // Refrigerated sauces
   'pesto', 'refrigerated salsa', 'tzatziki', 'refrigerated dressing',
@@ -221,13 +221,18 @@ export const PRIORITY_KEYWORDS = {
   'perishable': [
     // Refrigerated items that might contain confusing keywords
     'fresh pasta', 'refrigerated dough', 'fresh herbs',
-    'fresh salsa', 'fresh hummus'
+    'fresh salsa'
+  ],
+
+  'protein and cheese': [
+    // Plant-based proteins that should definitely be protein
+    'fresh hummus', 'homemade hummus', 'hummus'
   ],
 
   'produce': [
     // Fresh items that should definitely be produce
     'fresh tomatoes', 'fresh garlic', 'fresh ginger', 'fresh basil',
-    'fresh cilantro', 'fresh parsley', 'fresh spinach', 'fresh lettuce',
+    'fresh cilantro', 'fresh parsley', 'fresh spinach', 'fresh lettuce', 'fresh dill',
 
     // Thai and specialty fresh ingredients
     'thai basil', 'thai basil leaves', 'thai chiles', 'thai chilies',
