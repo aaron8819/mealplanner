@@ -2,12 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { LoadingOverlay } from '@/components/ui';
 import { supabase } from '@/lib/supabaseClient';
 import { UI_ICONS } from '@/constants/CategoryConstants';
+import { useShoppingContext } from '@/contexts/ShoppingContext';
+import { normalizeIngredient } from '@/utils/ingredientNormalizer';
 import styles from './SelectedRecipes/SelectedRecipes.module.css';
 
-export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, manualRemovals, user, reloadManualRemovals }) {
+export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, user }) {
   const previousRecipesRef = useRef([]);
   const [loading, setLoading] = useState(true);
   const [expandedRecipes, setExpandedRecipes] = useState(new Set());
+
+  // Use the shopping context
+  const { getIngredientStatus, clearRecipeRemovals } = useShoppingContext();
+
+
 
   // Helper function to get category info
   const getCategoryInfo = (category) => {
@@ -82,7 +89,7 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
         user_id: item.recipes.user_id
       }));
 
-      console.log('✅ Loaded selected recipes from Supabase:', recipes.length, 'recipes');
+
       setSelectedRecipes(recipes);
       previousRecipesRef.current = recipes;
       setLoading(false);
@@ -103,16 +110,17 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
       const toInsert = current.filter(r => !prevIds.has(r.id));
       if (toInsert.length > 0) {
         // Insert recipe references to selected_recipes table
-        const { error } = await supabase.from('selected_recipes').insert(
+        const { error } = await supabase.from('selected_recipes').upsert(
           toInsert.map(r => ({
             recipe_id: r.id,
             user_id: user.id
-          }))
+          })),
+          { onConflict: 'user_id,recipe_id' }
         );
         if (error) {
           console.error('Error inserting selected recipes:', error);
         } else {
-          console.log('✅ Successfully inserted selected recipes:', toInsert.length);
+
         }
       }
 
@@ -141,23 +149,15 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
     const recipeToRemove = selectedRecipes[index];
     if (!recipeToRemove || !user) return;
 
+    console.log(`🗑️ Removing recipe "${recipeToRemove.name}" and clearing its manual removals`);
+
     // Remove the recipe from selected recipes
     setSelectedRecipes(selectedRecipes.filter((_, i) => i !== index));
 
-    // Remove manual removals for this recipe from database
-    try {
-      await supabase
-        .from('manual_removals')
-        .delete()
-        .eq('recipe_id', recipeToRemove.id)
-        .eq('user_id', user.id);
-
-      // Reload manual removals to update state in real-time
-      if (reloadManualRemovals) {
-        await reloadManualRemovals();
-      }
-    } catch (error) {
-      console.error('Error cleaning up manual removals:', error);
+    // Clear manual removals for this recipe using the context
+    if (clearRecipeRemovals) {
+      await clearRecipeRemovals(recipeToRemove.id);
+      console.log(`✅ Cleared manual removals for recipe "${recipeToRemove.name}"`);
     }
   };
 
@@ -171,9 +171,9 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
       const trimmed = ingredient.trim();
       if (!trimmed) return '';
 
-      const normalizedName = trimmed.toLowerCase();
-      const removedForRecipes = manualRemovals[normalizedName];
-      const isRemovedFromThisRecipe = removedForRecipes?.has(recipeId);
+      const normalizedName = normalizeIngredient(trimmed);
+      const status = getIngredientStatus(normalizedName, recipeId);
+      const isRemovedFromThisRecipe = status === 'removed';
 
       return (
         <span
@@ -188,8 +188,8 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
 
   if (!user) {
     return (
-      <div className="p-4 bg-white rounded-xl shadow">
-        <p className="text-gray-600 italic">Loading user session...</p>
+      <div className={styles.loadingContainer}>
+        <p className={styles.loadingText}>Loading user session...</p>
       </div>
     );
   }
@@ -258,9 +258,9 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
                   <div className={styles.ingredientsList}>
                     {visibleIngredients.map((ingredient, idx) => {
                       const trimmed = typeof ingredient === 'string' ? ingredient.trim() : ingredient.props?.children?.trim?.() || '';
-                      const normalizedName = trimmed.toLowerCase();
-                      const removedForRecipes = manualRemovals[normalizedName];
-                      const isRemovedFromThisRecipe = removedForRecipes?.has(recipe.id);
+                      const normalizedName = normalizeIngredient(trimmed);
+                      const status = getIngredientStatus(normalizedName, recipe.id);
+                      const isRemovedFromThisRecipe = status === 'removed';
 
                       return (
                         <span

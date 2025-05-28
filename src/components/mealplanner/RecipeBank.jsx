@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { LoadingSpinner, ErrorMessage, RecipeDetailsModal, ConfirmModal } from '@/components/ui';
 import { generateFullRecipe } from '@/utils/generateIngredients';
 import { supabase } from '@/lib/supabaseClient';
-import { v4 as uuidv4 } from 'uuid';
+
 import { UI_ICONS } from '@/constants/CategoryConstants';
 import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
 import styles from './RecipeBank/RecipeBank.module.css';
@@ -370,12 +370,13 @@ Instructions:
         }
         setEditId(null);
       } else {
-        // Create new recipe
-        const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
+        // Create new recipe - let Supabase generate the ID
+        const recipeData = { ...finalRecipe, user_id: user.id };
+        delete recipeData.id; // Remove any existing id field
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('recipes')
-          .insert([recipeWithId])
+          .insert([recipeData])
           .select();
 
         if (error) {
@@ -383,7 +384,8 @@ Instructions:
           setError('Failed to add recipe. Please try again.');
           return;
         } else {
-          setRecipeBank([...recipeBank, recipeWithId]);
+          // Add the returned recipe (with generated ID) to the recipe bank
+          setRecipeBank([...recipeBank, data[0]]);
         }
       }
 
@@ -519,11 +521,13 @@ Instructions:
         }
         setEditId(null);
       } else {
-        const recipeWithId = { ...finalRecipe, id: uuidv4(), user_id: user.id };
+        // Create new recipe - let Supabase generate the ID
+        const recipeData = { ...finalRecipe, user_id: user.id };
+        delete recipeData.id; // Remove any existing id field
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('recipes')
-          .insert([recipeWithId])
+          .insert([recipeData])
           .select();
 
         if (error) {
@@ -531,7 +535,8 @@ Instructions:
           setError('Failed to add recipe. Please try again.');
           return;
         } else {
-          setRecipeBank([...recipeBank, recipeWithId]);
+          // Add the returned recipe (with generated ID) to the recipe bank
+          setRecipeBank([...recipeBank, data[0]]);
         }
       }
 

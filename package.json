@@ -13,10 +13,7 @@
     "lucide-react": "^0.292.0",
     "openai": "^4.102.0",
     "react": "^18.2.0",
-    "react-beautiful-dnd": "^13.1.1",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.16.0",
-    "uuid": "^11.1.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@rollup/plugin-alias": "^5.1.1",
@@ -31,12 +28,12 @@
     "type": "git",
     "url": "git+https://github.com/aaron8819/mealplanner.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["meal-planner", "recipe-manager", "shopping-list", "react"],
+  "author": "Aaron Bloch",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/aaron8819/mealplanner/issues"
   },
   "homepage": "https://github.com/aaron8819/mealplanner#readme",
-  "description": ""
+  "description": "A modern meal planning application with recipe management and smart shopping list generation"
 }

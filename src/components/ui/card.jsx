@@ -1,7 +1,12 @@
 import React from 'react';
-export function Card({ children, ...props }) {
-  return <div className="border rounded-lg bg-white shadow-sm p-4" {...props}>{children}</div>;
+import styles from './Card/Card.module.css';
+
+export function Card({ children, className = '', ...props }) {
+  const cardClasses = [styles.card, className].filter(Boolean).join(' ');
+  return <div className={cardClasses} {...props}>{children}</div>;
 }
-export function CardContent({ children, ...props }) {
-  return <div {...props}>{children}</div>;
+
+export function CardContent({ children, className = '', ...props }) {
+  const contentClasses = [styles.cardContent, className].filter(Boolean).join(' ');
+  return <div className={contentClasses} {...props}>{children}</div>;
 }

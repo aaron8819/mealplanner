@@ -1,0 +1,63 @@
+/* Textarea Component Styles */
+
+.textarea {
+  width: 100%;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  transition: var(--transition-fast);
+  background: white;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.textarea:disabled {
+  background: var(--color-gray-50);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+  resize: none;
+}
+
+.textarea::placeholder {
+  color: var(--color-gray-400);
+}
+
+/* Size variants */
+.small {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  min-height: 60px;
+}
+
+.large {
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-size-lg);
+  min-height: 120px;
+}
+
+/* State variants */
+.error {
+  border-color: var(--color-danger-500);
+}
+
+.error:focus {
+  border-color: var(--color-danger-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.success {
+  border-color: var(--color-success-500);
+}
+
+.success:focus {
+  border-color: var(--color-success-500);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}

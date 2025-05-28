@@ -1,27 +1,32 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import styles from './LoadingSpinner/LoadingSpinner.module.css';
 
 export function LoadingSpinner({ size = 'md', className = '', ...props }) {
-  const sizes = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8',
-    xl: 'w-12 h-12'
-  };
+  const spinnerClasses = [
+    styles.spinner,
+    styles[size],
+    className
+  ].filter(Boolean).join(' ');
 
   return (
-    <Loader2 
-      className={`animate-spin ${sizes[size]} ${className}`} 
-      {...props} 
+    <Loader2
+      className={spinnerClasses}
+      {...props}
     />
   );
 }
 
-export function LoadingButton({ children, loading, disabled, ...props }) {
+export function LoadingButton({ children, loading, disabled, className = '', ...props }) {
+  const buttonClasses = [
+    styles.loadingButton,
+    className
+  ].filter(Boolean).join(' ');
+
   return (
-    <button 
-      disabled={loading || disabled} 
-      className={`inline-flex items-center gap-2 ${props.className || ''}`}
+    <button
+      disabled={loading || disabled}
+      className={buttonClasses}
       {...props}
     >
       {loading && <LoadingSpinner size="sm" />}

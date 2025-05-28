@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Keyboard, X } from 'lucide-react';
 import { Button } from './button';
 import { SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
+import styles from './KeyboardShortcutsHelp/KeyboardShortcutsHelp.module.css';
 
 export function KeyboardShortcutsHelp() {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,49 +22,49 @@ export function KeyboardShortcutsHelp() {
         variant="ghost"
         size="sm"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-40 bg-white shadow-lg border"
+        className={styles.triggerButton}
         title="Keyboard shortcuts"
       >
-        <Keyboard className="w-4 h-4" />
+        <Keyboard className={styles.triggerIcon} />
       </Button>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className={styles.overlay}>
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      <div
+        className={styles.backdrop}
         onClick={() => setIsOpen(false)}
       />
-      
+
       {/* Dialog */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Keyboard className="w-5 h-5" />
+      <div className={styles.dialog}>
+        <div className={styles.header}>
+          <h3 className={styles.title}>
+            <Keyboard className={styles.titleIcon} />
             Keyboard Shortcuts
           </h3>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className={styles.closeButton}
           >
-            <X className="w-5 h-5" />
+            <X className={styles.closeIcon} />
           </button>
         </div>
-        
-        <div className="space-y-3">
+
+        <div className={styles.shortcutsList}>
           {Object.entries(SHORTCUTS).map(([key, shortcut]) => (
-            <div key={key} className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">{shortcut.description}</span>
-              <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">
+            <div key={key} className={styles.shortcutItem}>
+              <span className={styles.shortcutDescription}>{shortcut.description}</span>
+              <kbd className={styles.shortcutKeys}>
                 {formatShortcut(shortcut)}
               </kbd>
             </div>
           ))}
         </div>
-        
-        <div className="mt-4 pt-4 border-t text-xs text-gray-500">
+
+        <div className={styles.footer}>
           <p>Note: Shortcuts don't work when typing in input fields.</p>
         </div>
       </div>

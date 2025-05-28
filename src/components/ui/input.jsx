@@ -1,10 +1,23 @@
 import React from 'react';
+import styles from './Input/Input.module.css';
 
-export const Input = React.forwardRef(({ className = '', ...props }, ref) => {
+export const Input = React.forwardRef(({
+  className = '',
+  size = 'medium',
+  variant = 'default',
+  ...props
+}, ref) => {
+  const inputClasses = [
+    styles.input,
+    styles[size],
+    variant !== 'default' && styles[variant],
+    className
+  ].filter(Boolean).join(' ');
+
   return (
     <input
       ref={ref}
-      className={`border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:border-blue-300 transition-colors ${className}`}
+      className={inputClasses}
       {...props}
     />
   );

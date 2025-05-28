@@ -7,6 +7,20 @@
   max-width: 800px;
 }
 
+/* Loading State */
+.loadingContainer {
+  padding: var(--space-lg);
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  max-width: 800px;
+}
+
+.loadingText {
+  color: var(--color-gray-600);
+  font-style: italic;
+}
+
 /* Header */
 .header {
   font-size: var(--font-size-xl);

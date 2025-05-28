@@ -1,10 +1,26 @@
 import React from 'react';
+import styles from './Textarea/Textarea.module.css';
 
-export function Textarea({ className = '', ...props }) {
+export const Textarea = React.forwardRef(({
+  className = '',
+  size = 'medium',
+  variant = 'default',
+  ...props
+}, ref) => {
+  const textareaClasses = [
+    styles.textarea,
+    styles[size],
+    variant !== 'default' && styles[variant],
+    className
+  ].filter(Boolean).join(' ');
+
   return (
     <textarea
-      className={`border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:border-blue-300 ${className}`}
+      ref={ref}
+      className={textareaClasses}
       {...props}
     />
   );
-}
+});
+
+Textarea.displayName = 'Textarea';

@@ -1,0 +1,107 @@
+/* Login Component Styles */
+
+.container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: var(--space-xl);
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.errorMessage {
+  color: var(--color-danger-600);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--color-danger-50);
+  border: 1px solid var(--color-danger-200);
+  border-radius: var(--radius-md);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.inputField {
+  width: 100%;
+  border: 1px solid var(--color-gray-300);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  transition: var(--transition-fast);
+}
+
+.inputField:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.buttonGroup {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.button {
+  flex: 1;
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.loginButton {
+  background: var(--color-primary-600);
+  color: white;
+}
+
+.loginButton:hover:not(:disabled) {
+  background: var(--color-primary-700);
+}
+
+.signupButton {
+  background: var(--color-success-600);
+  color: white;
+}
+
+.signupButton:hover:not(:disabled) {
+  background: var(--color-success-700);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .container {
+    margin: var(--space-lg);
+    padding: var(--space-lg);
+  }
+  
+  .buttonGroup {
+    flex-direction: column;
+  }
+  
+  .button {
+    min-height: 44px;
+  }
+}

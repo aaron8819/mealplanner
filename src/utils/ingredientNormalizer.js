@@ -18,10 +18,81 @@ export function normalizeIngredient(ingredient) {
     // Remove extra whitespace
     .replace(/\s+/g, ' ');
 
+  // Apply protein cut normalization first (before pluralization)
+  normalized = normalizeProteinCuts(normalized);
+
   // Basic plural to singular conversion
   normalized = singularizeIngredient(normalized);
 
   return normalized;
+}
+
+/**
+ * Normalize protein cuts and parts to base protein names
+ * @param {string} ingredient - Ingredient to normalize
+ * @returns {string} - Normalized ingredient
+ */
+function normalizeProteinCuts(ingredient) {
+  // Define protein cut mappings - specific cuts map to base protein
+  const proteinCutMappings = {
+    // Chicken cuts
+    'chicken breast': 'chicken',
+    'chicken breasts': 'chicken',
+    'chicken thigh': 'chicken',
+    'chicken thighs': 'chicken',
+    'chicken leg': 'chicken',
+    'chicken legs': 'chicken',
+    'chicken wing': 'chicken',
+    'chicken wings': 'chicken',
+    'chicken drumstick': 'chicken',
+    'chicken drumsticks': 'chicken',
+    'chicken tender': 'chicken',
+    'chicken tenders': 'chicken',
+    'chicken cutlet': 'chicken',
+    'chicken cutlets': 'chicken',
+
+    // Beef cuts
+    'beef steak': 'beef',
+    'beef steaks': 'beef',
+    'beef roast': 'beef',
+    'beef chuck': 'beef',
+    'beef brisket': 'beef',
+    'beef sirloin': 'beef',
+    'beef tenderloin': 'beef',
+    'beef ribeye': 'beef',
+    'beef strip': 'beef',
+    'ground beef': 'beef',
+
+    // Pork cuts
+    'pork chop': 'pork',
+    'pork chops': 'pork',
+    'pork loin': 'pork',
+    'pork shoulder': 'pork',
+    'pork tenderloin': 'pork',
+    'pork belly': 'pork',
+    'ground pork': 'pork',
+
+    // Turkey cuts
+    'turkey breast': 'turkey',
+    'turkey thigh': 'turkey',
+    'turkey leg': 'turkey',
+    'ground turkey': 'turkey',
+
+    // Fish cuts
+    'salmon fillet': 'salmon',
+    'salmon fillets': 'salmon',
+    'tuna steak': 'tuna',
+    'tuna steaks': 'tuna',
+    'cod fillet': 'cod',
+    'cod fillets': 'cod'
+  };
+
+  // Check for exact matches first
+  if (proteinCutMappings[ingredient]) {
+    return proteinCutMappings[ingredient];
+  }
+
+  return ingredient;
 }
 
 /**
