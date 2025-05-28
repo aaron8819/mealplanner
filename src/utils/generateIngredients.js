@@ -9,11 +9,11 @@ export async function generateIngredients(recipeName) {
   return data.ingredients;
 }
 
-export async function generateFullRecipe(recipeName) {
+export async function generateFullRecipe(recipeName, simplified = false) {
   const res = await fetch('/api/generate-full-recipe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ recipeName }),
+    body: JSON.stringify({ recipeName, simplified }),
   });
 
   if (!res.ok) {

@@ -8,18 +8,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { recipeName } = req.body;
+    const { recipeName, simplified = false } = req.body;
 
     if (!recipeName || recipeName.trim() === '') {
       return res.status(400).json({ error: 'Recipe name is required' });
     }
 
-    const chat = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'user',
-          content: `Generate a flavorful and well-seasoned recipe for "${recipeName}". Format it exactly like this:
+    const prompt = simplified
+      ? `Generate a simplified version of "${recipeName}" that's easy for home cooks. Format it exactly like this:
 
 Ingredients:
 - [ingredient with quantity]
@@ -32,13 +28,37 @@ Instructions:
 3. [more steps...]
 
 Requirements:
-- Include proper seasoning (salt, pepper, herbs, spices) for robust flavor
-- Use cooking techniques that build flavor (sautéing, browning, deglazing, etc.)
-- Include aromatics like onions, garlic, or herbs where appropriate
-- Aim for restaurant-quality taste but home-kitchen accessible
-- Keep techniques straightforward but don't sacrifice flavor for simplicity
-- Include 6-10 ingredients typically, with at least 2-3 seasonings/spices
-- Provide clear timing and technique guidance for best results`,
+- Keep ingredients to a minimum (5-8 ingredients max)
+- Use basic cooking techniques and common ingredients
+- Still flavorful but much simpler preparation
+- Perfect for weeknight cooking or beginners
+- Clear, straightforward instructions`
+      : `Generate a professional-quality recipe for "${recipeName}" that's accessible to home cooks. Format it exactly like this:
+
+Ingredients:
+- [ingredient with quantity]
+- [ingredient with quantity]
+- [more ingredients...]
+
+Instructions:
+1. [step 1]
+2. [step 2]
+3. [more steps...]
+
+Requirements:
+- Professional-level flavor and seasoning
+- Use proper cooking techniques that build layers of flavor
+- Include aromatics, herbs, and spices as needed for authentic taste
+- Accessible to home cooks (no specialized equipment or rare ingredients)
+- Provide clear timing and technique guidance
+- Don't limit ingredient count - use what's needed for the best version of this dish`;
+
+    const chat = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
         },
       ],
       temperature: 0.7,

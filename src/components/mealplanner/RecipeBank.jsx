@@ -25,6 +25,7 @@ export default function RecipeBank({ recipeBank, setRecipeBank, onSelectRecipe, 
   const [recipeDetailsLoading, setRecipeDetailsLoading] = useState(false);
   const [aiGeneratedRecipe, setAiGeneratedRecipe] = useState(null);
   const [showAiPreview, setShowAiPreview] = useState(false);
+  const [isSimplifiedVersion, setIsSimplifiedVersion] = useState(false);
   const [addingRecipeId, setAddingRecipeId] = useState(null);
 
   // Helper function to highlight search terms
@@ -406,7 +407,8 @@ Instructions:
 
     setLoading(true);
     try {
-      const aiFullRecipe = await generateFullRecipe(newRecipe.name);
+      // Always generate simplified version when regenerating
+      const aiFullRecipe = await generateFullRecipe(newRecipe.name, true);
       const parsed = parseRecipeContent(aiFullRecipe);
       const ingredientNames = extractIngredientNames(parsed.ingredients);
 
@@ -415,6 +417,7 @@ Instructions:
         parsedIngredients: ingredientNames,
         parsedContent: parsed
       });
+      setIsSimplifiedVersion(true);
     } catch (error) {
       console.error('Failed to regenerate recipe:', error);
       setError('Could not regenerate recipe. Please try again.');
@@ -440,6 +443,7 @@ Instructions:
   const cancelAiGeneration = () => {
     setAiGeneratedRecipe(null);
     setShowAiPreview(false);
+    setIsSimplifiedVersion(false);
     setNewRecipe({ name: '', content: '', category: 'chicken' });
   };
 
@@ -469,6 +473,7 @@ Instructions:
             parsedContent: parsed
           });
           setShowAiPreview(true);
+          setIsSimplifiedVersion(false); // Initial generation is professional version
           setLoading(false);
           return; // Don't save yet, show preview first
         } catch (error) {
@@ -793,6 +798,19 @@ Instructions:
           gap: '8px'
         }}>
           🤖 AI Generated Recipe
+          {isSimplifiedVersion && (
+            <span style={{
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#059669',
+              backgroundColor: '#d1fae5',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              marginLeft: '8px'
+            }}>
+              Simplified Version
+            </span>
+          )}
         </h4>
       </div>
 
