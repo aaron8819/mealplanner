@@ -919,31 +919,94 @@
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .container {
+    padding: var(--space-md);
+    margin: 0;
+  }
+
   .inputRow {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--space-md);
   }
 
   .nameInput {
     min-width: auto;
+    width: 100%;
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px;
+    padding: var(--space-md);
+  }
+
+  .categorySelect {
+    width: 100%;
+    font-size: 16px;
+    min-height: 44px;
+    padding: var(--space-md);
+  }
+
+  .addButton {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+    font-size: var(--font-size-base);
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .textareaContainer {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .contentTextarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 120px;
+    padding: var(--space-md);
+  }
+
+  .aiPreview {
+    width: 100%;
+    max-width: 100%;
+    padding: var(--space-md);
+  }
+
+  .regularPreview {
+    width: 100%;
+    max-width: 100%;
+    padding: var(--space-md);
   }
 
   .searchFilter {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--space-md);
   }
 
   .searchInput {
     width: 100%;
+    font-size: 16px;
+    min-height: 44px;
+    padding: var(--space-md);
+  }
+
+  .filterSelect {
+    width: 100%;
+    font-size: 16px;
+    min-height: 44px;
+    padding: var(--space-md);
   }
 
   .aiPreviewActions {
     flex-direction: column;
+    gap: var(--space-sm);
   }
 
   .aiActionButton {
     width: 100%;
     justify-content: center;
+    min-height: 48px;
+    font-size: var(--font-size-base);
+    padding: var(--space-md) var(--space-lg);
   }
 
   .categorySection {
@@ -951,8 +1014,9 @@
   }
 
   .categoryHeader {
-    padding: var(--space-sm);
+    padding: var(--space-md);
     font-size: var(--font-size-base);
+    min-height: 56px;
   }
 
   .recipeItem {
@@ -980,20 +1044,19 @@
   }
 
   .recipeActionButton {
-    min-height: 40px;
-    min-width: 40px;
+    min-height: 44px;
+    min-width: 44px;
     padding: var(--space-sm);
     font-size: var(--font-size-sm);
   }
 
-  .recipeActions {
-    align-self: flex-end;
-    gap: var(--space-sm);
+  .header {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--space-md);
   }
 
-  .recipeActionButton {
-    width: 32px;
-    height: 32px;
-    font-size: var(--font-size-sm);
+  .headerIcon {
+    width: 20px;
+    height: 20px;
   }
 }
