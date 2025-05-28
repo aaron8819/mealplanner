@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       messages: [
         {
           role: 'user',
-          content: `Generate a simple recipe for "${recipeName}". Format it exactly like this:
+          content: `Generate a flavorful and well-seasoned recipe for "${recipeName}". Format it exactly like this:
 
 Ingredients:
 - [ingredient with quantity]
@@ -31,7 +31,14 @@ Instructions:
 2. [step 2]
 3. [more steps...]
 
-Keep it simple and practical. Use common ingredients and basic cooking techniques. Include quantities for ingredients and clear step-by-step instructions.`,
+Requirements:
+- Include proper seasoning (salt, pepper, herbs, spices) for robust flavor
+- Use cooking techniques that build flavor (sautéing, browning, deglazing, etc.)
+- Include aromatics like onions, garlic, or herbs where appropriate
+- Aim for restaurant-quality taste but home-kitchen accessible
+- Keep techniques straightforward but don't sacrifice flavor for simplicity
+- Include 6-10 ingredients typically, with at least 2-3 seasonings/spices
+- Provide clear timing and technique guidance for best results`,
         },
       ],
       temperature: 0.7,
