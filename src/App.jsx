@@ -95,14 +95,15 @@ export default function App() {
               title="Reset all selections and shopping list"
             >
               <RotateCcw style={{ width: '16px', height: '16px' }} />
-              Reset
+              <span>Reset</span>
             </button>
             <button
               onClick={handleLogout}
               className={styles.logoutButton}
+              title="Log out"
             >
               <LogOut style={{ width: '16px', height: '16px' }} />
-              Log out
+              <span>Log out</span>
             </button>
           </div>
         </div>
