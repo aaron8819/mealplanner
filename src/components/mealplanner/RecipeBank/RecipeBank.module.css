@@ -959,7 +959,8 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-sm);
-    padding: var(--space-sm);
+    padding: var(--space-md);
+    min-height: 60px;
   }
 
   .recipeName {
@@ -968,6 +969,21 @@
     white-space: normal;
     overflow: visible;
     text-overflow: unset;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+  }
+
+  .recipeActions {
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-sm);
+  }
+
+  .recipeActionButton {
+    min-height: 40px;
+    min-width: 40px;
+    padding: var(--space-sm);
+    font-size: var(--font-size-sm);
   }
 
   .recipeActions {

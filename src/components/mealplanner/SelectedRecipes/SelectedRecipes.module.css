@@ -247,6 +247,16 @@
 
   .ingredientPill {
     font-size: var(--font-size-xs);
-    padding: 2px var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+  }
+
+  .removeButton {
+    min-height: 40px;
+    min-width: 40px;
+    padding: var(--space-sm);
+    font-size: var(--font-size-sm);
   }
 }

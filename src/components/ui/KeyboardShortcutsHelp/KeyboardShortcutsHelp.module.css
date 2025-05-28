@@ -113,3 +113,10 @@
   font-size: var(--font-size-xs);
   color: var(--color-gray-500);
 }
+
+/* Hide on mobile since keyboard shortcuts aren't useful on touch devices */
+@media (max-width: 768px) {
+  .triggerButton {
+    display: none;
+  }
+}

@@ -180,13 +180,23 @@
     margin: var(--space-lg);
     padding: var(--space-xl);
   }
-  
+
   .actions {
     flex-direction: column-reverse;
+    gap: var(--space-sm);
   }
-  
+
   .button {
     width: 100%;
     justify-content: center;
+    min-height: 48px;
+    font-size: var(--font-size-base);
+  }
+
+  .closeButton {
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--space-sm);
+    font-size: var(--font-size-lg);
   }
 }
