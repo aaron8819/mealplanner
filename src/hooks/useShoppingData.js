@@ -4,7 +4,6 @@ import { classifyIngredient } from '@/constants/CategoryConstants';
 
 export function useShoppingData({ selectedRecipes, customItems, user, manualRemovals, setManualRemovals }) {
   const [persistedItems, setPersistedItems] = useState([]);
-  const [dismissedItems, setDismissedItems] = useState({});
   const [lastSyncedRecipes, setLastSyncedRecipes] = useState([]);
 
   const rawIngredientCount = {};
@@ -36,16 +35,21 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
 
   const currentIngredientNames = Object.keys(rawIngredientCount);
 
-  // Load persisted shopping items
+  // Load persisted shopping items with state
   useEffect(() => {
     if (!user) return;
+    console.log('🔄 Loading shopping items from Supabase for user:', user.id);
     supabase
       .from('shopping_items')
       .select('*')
       .eq('user_id', user.id)
       .then(({ data, error }) => {
-        if (error) console.error('Error fetching items:', error);
-        else setPersistedItems(data || []);
+        if (error) {
+          console.error('❌ Error fetching shopping items:', error);
+        } else {
+          console.log('✅ Loaded shopping items from Supabase:', data?.length || 0, 'items');
+          setPersistedItems(data || []);
+        }
       });
   }, [user]);
 
@@ -62,6 +66,12 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
       return;
     }
 
+    // Don't sync if no recipes are selected and we haven't synced before
+    if (selectedRecipes.length === 0 && lastSyncedRecipes.length === 0) {
+      console.log('⏭️ Skipping sync - no recipes to sync');
+      return;
+    }
+
     const syncIngredientsToSupabase = async () => {
       try {
         console.log('🔄 Syncing ingredients to Supabase...', {
@@ -69,6 +79,34 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
           recipesCount: selectedRecipes.length,
           manualRemovalsReady: !!manualRemovals
         });
+
+        // First, get existing recipe items to preserve their state
+        const { data: existingItems, error: fetchError } = await supabase
+          .from('shopping_items')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('source', 'recipe');
+
+        if (fetchError) {
+          console.error('❌ Error fetching existing recipe items:', fetchError);
+          return;
+        }
+
+        // Create a map of existing item states (aggregate across duplicates)
+        const existingStates = {};
+        existingItems?.forEach(item => {
+          if (!existingStates[item.name]) {
+            existingStates[item.name] = {
+              is_checked: false,
+              dismissed: false
+            };
+          }
+          // If ANY instance is checked/dismissed, preserve that state
+          if (item.is_checked) existingStates[item.name].is_checked = true;
+          if (item.dismissed) existingStates[item.name].dismissed = true;
+        });
+
+
 
         // Remove existing recipe-based items for current user
         const { error: deleteError } = await supabase
@@ -85,11 +123,13 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
         // If no recipes selected, we're done (just cleaned up)
         if (selectedRecipes.length === 0) {
           console.log('✅ No recipes selected, cleaned up database');
+          // Update persistedItems to remove recipe items
+          setPersistedItems(prev => prev.filter(item => item.source !== 'recipe'));
           return;
         }
 
-        // Get all current recipe ingredients
-        const recipeIngredients = [];
+        // Get all current recipe ingredients (deduplicated by name)
+        const ingredientMap = {};
         selectedRecipes.forEach((recipe) => {
           console.log('📝 Processing recipe:', recipe.name, 'ID:', recipe.id);
           const ingredients = Array.isArray(recipe.ingredients)
@@ -98,16 +138,21 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
 
           ingredients.forEach((ingredient) => {
             const name = ingredient.trim().toLowerCase();
-            if (name) {
-              recipeIngredients.push({
+            if (name && !ingredientMap[name]) {
+              const existingState = existingStates[name];
+              ingredientMap[name] = {
                 name,
                 user_id: user.id,
                 source: 'recipe',
-                recipe_id: recipe.id
-              });
+                recipe_id: recipe.id, // Use the first recipe that contains this ingredient
+                is_checked: existingState?.is_checked || false,
+                dismissed: existingState?.dismissed || false
+              };
             }
           });
         });
+
+        const recipeIngredients = Object.values(ingredientMap);
 
         console.log('🛒 Recipe ingredients to insert:', recipeIngredients.length, recipeIngredients);
 
@@ -128,6 +173,14 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
           console.log('✅ Successfully synced ingredients to Supabase:', data?.length || 0, 'items');
           // Update last synced recipes to prevent duplicate syncs
           setLastSyncedRecipes([...selectedRecipes]);
+
+          // Update persistedItems with the new data to keep local state in sync
+          setPersistedItems(prev => {
+            // Keep custom items and other non-recipe items
+            const nonRecipeItems = prev.filter(item => item.source !== 'recipe');
+            // Add the new recipe items
+            return [...nonRecipeItems, ...(data || [])];
+          });
         }
       } catch (error) {
         console.error('❌ Error in syncIngredientsToSupabase:', error);
@@ -139,12 +192,79 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
 
 
 
-  // Handle item check/uncheck (single click)
+  // Handle item check/uncheck (single click) - persist to database
   const handleItemClick = async (name) => {
-    setDismissedItems((prev) => ({
-      ...prev,
-      [name]: prev[name] === 'checked' ? undefined : 'checked'
-    }));
+    if (!user) return;
+
+    const existingItem = persistedItems.find(item => item.name === name);
+
+    if (existingItem) {
+      // Item exists in database - update it
+      const newCheckedState = !existingItem.is_checked;
+
+      const { error } = await supabase
+        .from('shopping_items')
+        .update({ is_checked: newCheckedState })
+        .eq('id', existingItem.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('❌ Error updating item checked state:', error);
+        return;
+      }
+      // Update local state
+      setPersistedItems(prev =>
+        prev.map(prevItem =>
+          prevItem.id === existingItem.id
+            ? { ...prevItem, is_checked: newCheckedState }
+            : prevItem
+        )
+      );
+    } else {
+      // Item doesn't exist in database yet - find the recipe item and update it
+      console.log('📝 Looking for recipe item to update for:', name);
+
+      // Try to find and update an existing recipe item
+      const { data: existingRecipeItems, error: findError } = await supabase
+        .from('shopping_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('name', name)
+        .eq('source', 'recipe');
+
+      if (findError) {
+        console.error('❌ Error finding recipe item:', findError);
+        return;
+      }
+
+      if (existingRecipeItems && existingRecipeItems.length > 0) {
+        // Update the first matching recipe item
+        const itemToUpdate = existingRecipeItems[0];
+        console.log('📝 Updating existing recipe item:', itemToUpdate.id);
+
+        const { error } = await supabase
+          .from('shopping_items')
+          .update({ is_checked: true })
+          .eq('id', itemToUpdate.id);
+
+        if (error) {
+          console.error('❌ Error updating recipe item:', error);
+          return;
+        }
+
+        console.log('✅ Successfully updated recipe item to checked');
+        // Update local state
+        setPersistedItems(prev =>
+          prev.map(item =>
+            item.id === itemToUpdate.id
+              ? { ...item, is_checked: true }
+              : item
+          )
+        );
+      } else {
+        console.log('⚠️ No recipe item found to update for:', name);
+      }
+    }
   };
 
   // Reduce quantity by 1
@@ -204,14 +324,26 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
     }
 
     // Also remove from custom items if it exists
-    setDismissedItems((prev) => ({ ...prev, [name]: 'removed' }));
-
     const match = persistedItems.find((item) => item.name === name);
     if (match) {
-      const { error } = await supabase.from('shopping_items').delete().eq('id', match.id).eq('user_id', user.id);
-      if (error) console.error(`❌ Delete error for "${name}":`, error);
-      else {
-        setPersistedItems((prev) => prev.filter((item) => item.id !== match.id));
+      // Update dismissed state in database instead of deleting
+      const { error } = await supabase
+        .from('shopping_items')
+        .update({ dismissed: true })
+        .eq('id', match.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error(`❌ Error updating dismissed state for "${name}":`, error);
+      } else {
+        // Update local state
+        setPersistedItems((prev) =>
+          prev.map(item =>
+            item.id === match.id
+              ? { ...item, dismissed: true }
+              : item
+          )
+        );
       }
     }
   };
@@ -255,22 +387,42 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
       });
     });
 
-    // Remove 'removed' status for ingredients that are back in recipes
-    setDismissedItems((prev) => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach((ingredient) => {
-        if (updated[ingredient] === 'removed' && currentIngredients.has(ingredient)) {
-          delete updated[ingredient];
-        }
-      });
-      return updated;
-    });
+    // Remove 'dismissed' status for ingredients that are back in recipes
+    const itemsToRestore = persistedItems.filter(item =>
+      item.dismissed && currentIngredients.has(item.name)
+    );
+
+    if (itemsToRestore.length > 0) {
+      const idsToRestore = itemsToRestore.map(item => item.id);
+      supabase
+        .from('shopping_items')
+        .update({ dismissed: false })
+        .in('id', idsToRestore)
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error restoring dismissed items:', error);
+          } else {
+            // Update local state
+            setPersistedItems(prev =>
+              prev.map(item =>
+                idsToRestore.includes(item.id)
+                  ? { ...item, dismissed: false }
+                  : item
+              )
+            );
+          }
+        });
+    }
   }, [selectedRecipes, user]);
 
-  // Categorize for UI
+  // Categorize for UI - use database state
   const categorized = {};
   Object.entries(rawIngredientCount).forEach(([name, count]) => {
-    if (dismissedItems[name] === 'removed') return;
+    // Check if item is dismissed in database
+    const persistedItem = persistedItems.find(item => item.name === name);
+    if (persistedItem?.dismissed) return;
+
     const category = classifyIngredient(name);
     if (!categorized[category]) categorized[category] = [];
     categorized[category].push({ name, count });
@@ -279,6 +431,18 @@ export function useShoppingData({ selectedRecipes, customItems, user, manualRemo
   Object.values(categorized).forEach((items) =>
     items.sort((a, b) => a.name.localeCompare(b.name))
   );
+
+  // Create dismissedItems object for backward compatibility
+  const dismissedItems = {};
+  persistedItems.forEach(item => {
+    if (item.dismissed) {
+      dismissedItems[item.name] = 'removed';
+    } else if (item.is_checked) {
+      dismissedItems[item.name] = 'checked';
+    }
+  });
+
+
 
   return {
     categorizedIngredients: categorized,

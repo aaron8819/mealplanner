@@ -31,7 +31,7 @@ export default function App() {
   const handleReset = async () => {
     if (!user) return;
 
-    // Clear Supabase data
+    // Clear all Supabase user data
     const { error: itemError } = await supabase
       .from('shopping_items')
       .delete()
@@ -42,10 +42,22 @@ export default function App() {
       .delete()
       .eq('user_id', user.id);
 
-    if (itemError || removalError) {
-      console.error('❌ Reset failed:', itemError || removalError);
+    const { error: selectedError } = await supabase
+      .from('selected_recipes')
+      .delete()
+      .eq('user_id', user.id);
+
+    const { error: preferencesError } = await supabase
+      .from('user_preferences')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (itemError || removalError || selectedError || preferencesError) {
+      console.error('❌ Reset failed:', itemError || removalError || selectedError || preferencesError);
       return;
     }
+
+    console.log('✅ All user data cleared from Supabase');
 
     // Force MealPlanner to re-render and reset state
     setMealPlannerKey(prev => prev + 1);

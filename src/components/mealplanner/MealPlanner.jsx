@@ -12,6 +12,7 @@ export default function MealPlanner({ user }) {
   const [selectedRecipes, setSelectedRecipes] = useState([]);
   const [customItems, setCustomItems] = useState([]);
   const [manualRemovals, setManualRemovals] = useState({});
+  const [loading, setLoading] = useState(true);
 
   // Load manual removals
   const loadManualRemovals = async () => {
@@ -23,7 +24,7 @@ export default function MealPlanner({ user }) {
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('Error loading manual removals:', error.message);
+      console.error('❌ Error loading manual removals:', error.message);
       return;
     }
 
@@ -32,13 +33,40 @@ export default function MealPlanner({ user }) {
       if (!map[ingredient]) map[ingredient] = new Set();
       map[ingredient].add(recipe_id);
     });
-
     setManualRemovals(map);
   };
 
+  // Initialize all data from Supabase
   useEffect(() => {
-    loadManualRemovals();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const initializeData = async () => {
+      await loadManualRemovals();
+      setLoading(false);
+    };
+
+    initializeData();
+  }, [user]);
+
+  // Reload manual removals when selected recipes change
+  useEffect(() => {
+    if (user && selectedRecipes.length > 0) {
+      loadManualRemovals();
+    }
   }, [user, selectedRecipes]);
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <p>Loading meal planner...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

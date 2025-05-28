@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CATEGORY_ORDER, CATEGORY_ICONS, UI_ICONS } from '@/constants/CategoryConstants';
 import { useShoppingData } from '@/hooks/useShoppingData';
+import { supabase } from '@/lib/supabaseClient';
 import styles from './ShoppingList/ShoppingList.module.css';
 
 export default function ShoppingList({ selectedRecipes, customItems = [], user, manualRemovals, setManualRemovals }) {
@@ -15,16 +16,71 @@ export default function ShoppingList({ selectedRecipes, customItems = [], user, 
     currentIngredientNames,
   } = useShoppingData({ selectedRecipes, customItems, user, manualRemovals, setManualRemovals });
 
-  const toggleCategory = (category) => {
-    setCollapsedCategories(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(category)) {
-        newSet.delete(category);
-      } else {
-        newSet.add(category);
+  // Load collapsed categories from database
+  useEffect(() => {
+    if (!user) return;
+
+    const loadPreferences = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_preferences')
+          .select('collapsed_categories')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // No rows found - this is normal for new users
+            console.log('📝 No user preferences found - using defaults');
+          } else if (error.code === '42P01') {
+            // Table doesn't exist
+            console.log('⚠️ User preferences table not found - using defaults');
+          } else {
+            console.error('Error loading user preferences:', error);
+          }
+          return;
+        }
+
+        if (data?.collapsed_categories) {
+          setCollapsedCategories(new Set(data.collapsed_categories));
+          console.log('✅ Loaded collapsed categories:', data.collapsed_categories);
+        }
+      } catch (err) {
+        console.error('Failed to load user preferences:', err);
       }
-      return newSet;
-    });
+    };
+
+    loadPreferences();
+  }, [user]);
+
+  const toggleCategory = async (category) => {
+    const newSet = new Set(collapsedCategories);
+    if (newSet.has(category)) {
+      newSet.delete(category);
+    } else {
+      newSet.add(category);
+    }
+
+    setCollapsedCategories(newSet);
+
+    // Persist to database
+    if (user) {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          collapsed_categories: Array.from(newSet),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) {
+        console.error('Error saving user preferences:', error);
+      } else {
+        console.log('✅ Saved collapsed categories:', Array.from(newSet));
+      }
+    }
   };
 
   if (currentIngredientNames.length === 0) {

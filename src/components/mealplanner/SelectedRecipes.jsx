@@ -49,16 +49,42 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
     }
 
     async function fetchSelected() {
+      // Join selected_recipes with recipes table to get full recipe data
       const { data, error } = await supabase
         .from('selected_recipes')
-        .select('*')
+        .select(`
+          id,
+          recipe_id,
+          recipes!inner (
+            id,
+            name,
+            ingredients,
+            category,
+            recipe_details,
+            user_id
+          )
+        `)
         .eq('user_id', user.id);
 
-      if (error) console.error('Error loading selected recipes:', error);
-      else {
-        setSelectedRecipes(data);
-        previousRecipesRef.current = data;
+      if (error) {
+        console.error('Error loading selected recipes:', error);
+        setLoading(false);
+        return;
       }
+
+      // Transform the joined data back to recipe format
+      const recipes = data.map(item => ({
+        id: item.recipes.id,
+        name: item.recipes.name,
+        ingredients: item.recipes.ingredients,
+        category: item.recipes.category,
+        recipe_details: item.recipes.recipe_details,
+        user_id: item.recipes.user_id
+      }));
+
+      console.log('✅ Loaded selected recipes from Supabase:', recipes.length, 'recipes');
+      setSelectedRecipes(recipes);
+      previousRecipesRef.current = recipes;
       setLoading(false);
     }
     fetchSelected();
@@ -76,18 +102,33 @@ export default function SelectedRecipes({ selectedRecipes, setSelectedRecipes, m
 
       const toInsert = current.filter(r => !prevIds.has(r.id));
       if (toInsert.length > 0) {
-        const { error } = await supabase.from('selected_recipes').upsert(
-          toInsert.map(r => ({ ...r, user_id: user.id })),
-          { onConflict: 'id' }
+        // Insert recipe references to selected_recipes table
+        const { error } = await supabase.from('selected_recipes').insert(
+          toInsert.map(r => ({
+            recipe_id: r.id,
+            user_id: user.id
+          }))
         );
-        if (error) console.error('Error inserting selected recipes:', error);
+        if (error) {
+          console.error('Error inserting selected recipes:', error);
+        } else {
+          console.log('✅ Successfully inserted selected recipes:', toInsert.length);
+        }
       }
 
       const toDelete = prev.filter(r => !currentIds.has(r.id));
       if (toDelete.length > 0) {
-        const idsToDelete = toDelete.map(r => r.id);
-        const { error } = await supabase.from('selected_recipes').delete().in('id', idsToDelete);
-        if (error) console.error('Error deleting selected recipes:', error);
+        const recipeIdsToDelete = toDelete.map(r => r.id);
+        const { error } = await supabase
+          .from('selected_recipes')
+          .delete()
+          .eq('user_id', user.id)
+          .in('recipe_id', recipeIdsToDelete);
+        if (error) {
+          console.error('Error deleting selected recipes:', error);
+        } else {
+          console.log('✅ Successfully deleted selected recipes:', toDelete.length);
+        }
       }
 
       previousRecipesRef.current = current;
