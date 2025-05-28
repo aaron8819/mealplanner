@@ -4,6 +4,87 @@ import { useShoppingContext } from '@/contexts/ShoppingContext';
 import { LoadingSpinner, ErrorMessage } from '@/components/ui';
 import styles from './ShoppingList/ShoppingList.module.css';
 
+// Smart Tag Group Component
+function SmartTagGroup({ tags }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Helper function to get tag class name
+  const getTagClassName = (tag) => {
+    if (tag.id === 'custom') {
+      return `${styles.recipeTag} ${styles.customTag}`;
+    }
+    const colorClass = `recipeTag${tag.color.charAt(0).toUpperCase() + tag.color.slice(1)}`;
+    return `${styles.recipeTag} ${styles[colorClass] || styles.recipeTagBlue}`;
+  };
+
+  if (tags.length <= 2) {
+    // Show all tags if 2 or fewer
+    return (
+      <div className={styles.recipeTags}>
+        {tags.map((tag, tagIdx) => (
+          <span
+            key={tagIdx}
+            className={getTagClassName(tag)}
+            title={tag.name}
+          >
+            {tag.name.length > 12 ? `${tag.name.substring(0, 12)}...` : tag.name}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Show collapsed/expanded view for 3+ tags
+  return (
+    <div className={styles.recipeTags}>
+      {isExpanded ? (
+        // Expanded: show all tags + collapse button
+        <>
+          {tags.map((tag, tagIdx) => (
+            <span
+              key={tagIdx}
+              className={getTagClassName(tag)}
+              title={tag.name}
+            >
+              {tag.name.length > 12 ? `${tag.name.substring(0, 12)}...` : tag.name}
+            </span>
+          ))}
+          <button
+            className={`${styles.recipeTag} ${styles.expandButton}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(false);
+            }}
+            title="Show less"
+          >
+            ▲
+          </button>
+        </>
+      ) : (
+        // Collapsed: show first tag + count button
+        <>
+          <span
+            className={getTagClassName(tags[0])}
+            title={tags[0].name}
+          >
+            {tags[0].name.length > 12 ? `${tags[0].name.substring(0, 12)}...` : tags[0].name}
+          </span>
+          <button
+            className={`${styles.recipeTag} ${styles.expandButton}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(true);
+            }}
+            title={`Show all ${tags.length} recipes: ${tags.map(t => t.name).join(', ')}`}
+          >
+            +{tags.length - 1} ▼
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ShoppingList() {
   const [collapsedCategories, setCollapsedCategories] = useState(new Set());
 
@@ -22,6 +103,7 @@ export default function ShoppingList() {
     includeIngredient,
     removeIngredient,
     addCustomItem,
+    decrementQuantity,
     reload
   } = useShoppingContext();
 
@@ -83,6 +165,10 @@ export default function ShoppingList() {
     if (recipesToUpdate.length === 0) {
       await removeIngredient(ingredient, null);
     }
+  };
+
+  const handleDecrementItem = async (ingredient) => {
+    await decrementQuantity(ingredient);
   };
 
   const toggleCategory = async (category) => {
@@ -250,7 +336,7 @@ export default function ShoppingList() {
             <div className={styles.categoryContent}>
               <ul className={styles.itemsList}>
               {items.map((item, idx) => {
-                const { name, count, isChecked, recipes } = item;
+                const { name, count, isChecked, recipes, tags } = item;
                 const isCustomItem = !recipes || recipes.length === 0;
 
                 return (
@@ -265,11 +351,25 @@ export default function ShoppingList() {
                       <div className={styles.itemText}>
                         <p className={styles.itemName}>
                           {name}
-                          {isCustomItem && <span className={styles.customBadge}>custom</span>}
                         </p>
+                        {tags && tags.length > 0 && (
+                          <SmartTagGroup tags={tags} />
+                        )}
                       </div>
                     </div>
                     <div className={styles.itemQuantity}>
+                      {count > 1 && (
+                        <button
+                          className={`${styles.actionButton} ${styles.decrementButton}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDecrementItem(name);
+                          }}
+                          title="Reduce quantity by 1"
+                        >
+                          −
+                        </button>
+                      )}
                       <span className={styles.quantityBadge}>x{count}</span>
                     </div>
                     <div className={styles.itemActions}>

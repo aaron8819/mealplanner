@@ -222,8 +222,21 @@ export function ShoppingProvider({ children, user, selectedRecipes }) {
   const generateShoppingList = () => {
     const ingredientCounts = {};
     const ingredientToRecipes = {};
+    const recipeIdToName = {};
 
+    // Recipe color palette for consistent theming (using available CSS variables)
+    const recipeColors = [
+      'blue', 'green', 'purple', 'orange', 'pink', 'indigo', 'teal', 'red'
+    ];
 
+    // Create recipe ID to name mapping with colors
+    selectedRecipes.forEach((recipe, index) => {
+      const assignedColor = recipeColors[index % recipeColors.length];
+      recipeIdToName[recipe.id] = {
+        name: recipe.name,
+        color: assignedColor
+      };
+    });
 
     // Process all selected recipes
     selectedRecipes.forEach(recipe => {
@@ -295,6 +308,20 @@ export function ShoppingProvider({ children, user, selectedRecipes }) {
         return; // Don't show removed ingredients
       }
 
+      // Create recipe tags with names and colors
+      const recipeTags = recipes.map(recipeId => {
+        const recipeInfo = recipeIdToName[recipeId] || { name: `Recipe ${recipeId}`, color: 'gray' };
+        return {
+          id: recipeId,
+          name: recipeInfo.name,
+          color: recipeInfo.color
+        };
+      });
+
+      // Add CUSTOM tag for custom items
+      const isCustomItem = normalized.startsWith('custom_');
+      const tags = isCustomItem ? [{ id: 'custom', name: 'CUSTOM', color: 'gray' }] : recipeTags;
+
       const category = classifyIngredient(displayName);
       if (!categorized[category]) categorized[category] = [];
 
@@ -303,7 +330,8 @@ export function ShoppingProvider({ children, user, selectedRecipes }) {
         normalized,
         count,
         isChecked,
-        recipes
+        recipes,
+        tags
       });
     });
 
@@ -327,6 +355,46 @@ export function ShoppingProvider({ children, user, selectedRecipes }) {
 
   const addCustomItem = async (itemName) => {
     await updateShoppingState(itemName, null, 'included');
+  };
+
+  // Decrement quantity by removing from one recipe instance
+  const decrementQuantity = async (ingredient) => {
+    if (!user) return;
+
+    const normalizedIngredient = normalizeIngredient(ingredient);
+
+    // Find all recipes that contain this ingredient
+    const recipesWithIngredient = [];
+    selectedRecipes.forEach(recipe => {
+      const ingredients = Array.isArray(recipe.ingredients)
+        ? recipe.ingredients
+        : recipe.ingredients.split(',');
+
+      const hasIngredient = ingredients.some(ing =>
+        normalizeIngredient(ing.trim().toLowerCase()) === normalizedIngredient
+      );
+
+      if (hasIngredient) {
+        // Only include if not manually removed
+        if (getIngredientStatus(normalizedIngredient, recipe.id) !== 'removed') {
+          recipesWithIngredient.push(recipe.id);
+        }
+      }
+    });
+
+    // Check if it's a custom item
+    const isCustomItem = recipesWithIngredient.length === 0;
+
+    if (isCustomItem) {
+      // For custom items, decrement means remove completely (they always have quantity 1)
+      await removeIngredient(ingredient, null);
+    } else if (recipesWithIngredient.length === 1) {
+      // Only one recipe has this ingredient, remove it completely
+      await removeIngredient(ingredient, recipesWithIngredient[0]);
+    } else {
+      // Multiple recipes have this ingredient, remove from the first one
+      await removeIngredient(ingredient, recipesWithIngredient[0]);
+    }
   };
 
   const clearRecipeRemovals = async (recipeId) => {
@@ -380,6 +448,7 @@ export function ShoppingProvider({ children, user, selectedRecipes }) {
     checkIngredient,
     includeIngredient,
     addCustomItem,
+    decrementQuantity,
     clearRecipeRemovals,
     reload: loadShoppingState
   };

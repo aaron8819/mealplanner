@@ -335,7 +335,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-gray-900);
-  margin: 0;
+  margin: 0 0 var(--space-xs) 0;
   word-wrap: break-word;
   transition: var(--transition-fast);
 }
@@ -343,6 +343,153 @@
 .itemCard.checked .itemName {
   text-decoration: line-through;
   color: var(--color-gray-500);
+}
+
+/* Recipe Tags */
+.recipeTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.recipeTag {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: var(--transition-fast);
+  cursor: default;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customTag {
+  background: var(--color-gray-100);
+  color: var(--color-gray-600);
+  border: 1px solid var(--color-gray-200);
+}
+
+/* Recipe Color Variants */
+.recipeTagBlue {
+  background: var(--color-blue-100);
+  color: var(--color-blue-700);
+  border: 1px solid var(--color-blue-200);
+}
+
+.recipeTagBlue:hover {
+  background: var(--color-blue-200);
+  transform: scale(1.05);
+}
+
+.recipeTagGreen {
+  background: var(--color-green-100);
+  color: var(--color-green-700);
+  border: 1px solid var(--color-green-200);
+}
+
+.recipeTagGreen:hover {
+  background: var(--color-green-200);
+  transform: scale(1.05);
+}
+
+.recipeTagPurple {
+  background: var(--color-purple-100);
+  color: var(--color-purple-700);
+  border: 1px solid var(--color-purple-200);
+}
+
+.recipeTagPurple:hover {
+  background: var(--color-purple-200);
+  transform: scale(1.05);
+}
+
+.recipeTagOrange {
+  background: var(--color-orange-100);
+  color: var(--color-orange-700);
+  border: 1px solid var(--color-orange-200);
+}
+
+.recipeTagOrange:hover {
+  background: var(--color-orange-200);
+  transform: scale(1.05);
+}
+
+.recipeTagPink {
+  background: var(--color-pink-100);
+  color: var(--color-pink-700);
+  border: 1px solid var(--color-pink-200);
+}
+
+.recipeTagPink:hover {
+  background: var(--color-pink-200);
+  transform: scale(1.05);
+}
+
+.recipeTagIndigo {
+  background: var(--color-indigo-100);
+  color: var(--color-indigo-700);
+  border: 1px solid var(--color-indigo-200);
+}
+
+.recipeTagIndigo:hover {
+  background: var(--color-indigo-200);
+  transform: scale(1.05);
+}
+
+.recipeTagTeal {
+  background: var(--color-teal-100);
+  color: var(--color-teal-700);
+  border: 1px solid var(--color-teal-200);
+}
+
+.recipeTagTeal:hover {
+  background: var(--color-teal-200);
+  transform: scale(1.05);
+}
+
+.recipeTagRed {
+  background: var(--color-red-100);
+  color: var(--color-red-700);
+  border: 1px solid var(--color-red-200);
+}
+
+.recipeTagRed:hover {
+  background: var(--color-red-200);
+  transform: scale(1.05);
+}
+
+.recipeTagGray {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+  border: 1px solid var(--color-gray-200);
+}
+
+.recipeTagGray:hover {
+  background: var(--color-gray-200);
+  transform: scale(1.05);
+}
+
+/* Expand/Collapse Button */
+.expandButton {
+  background: var(--color-gray-50);
+  color: var(--color-gray-500);
+  border: 1px solid var(--color-gray-300);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 4px;
+  transition: var(--transition-fast);
+}
+
+.expandButton:hover {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+  transform: scale(1.1);
 }
 
 /* Item Quantity */
@@ -399,6 +546,12 @@
 .decrementButton {
   background: var(--color-warning-100);
   color: var(--color-warning-700);
+  opacity: 0;
+  transition: var(--transition-fast);
+}
+
+.itemCard:hover .decrementButton {
+  opacity: 1;
 }
 
 .decrementButton:hover {
@@ -476,6 +629,10 @@
     opacity: 1; /* Always show on mobile */
   }
 
+  .decrementButton {
+    opacity: 1; /* Always show on mobile */
+  }
+
   .categoryHeader {
     margin-bottom: var(--space-sm);
   }
@@ -487,6 +644,18 @@
   .categoryIcon {
     width: 18px;
     height: 18px;
+  }
+
+  /* Recipe tags mobile adjustments */
+  .recipeTags {
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  .recipeTag {
+    font-size: 10px;
+    padding: 1px 4px;
+    max-width: 80px;
   }
 }
 
