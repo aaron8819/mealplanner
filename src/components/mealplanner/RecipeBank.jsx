@@ -259,8 +259,36 @@ Instructions:
     }
   ]);
 
+  // Load collapsed recipe categories from database
   useEffect(() => {
     if (!user) return;
+
+    const loadPreferences = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_preferences')
+          .select('collapsed_recipe_categories')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('📝 No user preferences found for recipe categories - using defaults');
+          } else if (error.code === '42P01') {
+            console.log('⚠️ User preferences table not found - using defaults');
+          } else {
+            console.error('Error loading recipe category preferences:', error);
+          }
+          return;
+        }
+
+        if (data?.collapsed_recipe_categories) {
+          setCollapsedCategories(new Set(data.collapsed_recipe_categories));
+        }
+      } catch (err) {
+        console.error('Failed to load recipe category preferences:', err);
+      }
+    };
 
     async function loadRecipes() {
       const { data, error } = await supabase
@@ -275,6 +303,8 @@ Instructions:
         setRecipeBank(data);
       }
     }
+
+    loadPreferences();
     loadRecipes();
   }, [setRecipeBank, user]);
 
@@ -620,16 +650,32 @@ Instructions:
     nameInputRef.current?.focus();
   };
 
-  const toggleCategoryCollapse = (category) => {
-    setCollapsedCategories(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(category)) {
-        newSet.delete(category);
-      } else {
-        newSet.add(category);
+  const toggleCategoryCollapse = async (category) => {
+    const newSet = new Set(collapsedCategories);
+    if (newSet.has(category)) {
+      newSet.delete(category);
+    } else {
+      newSet.add(category);
+    }
+
+    setCollapsedCategories(newSet);
+
+    // Persist to database
+    if (user) {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          collapsed_recipe_categories: Array.from(newSet),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) {
+        console.error('Error saving recipe category preferences:', error);
       }
-      return newSet;
-    });
+    }
   };
 
   const filteredRecipes = recipeBank.filter((recipe) => {
