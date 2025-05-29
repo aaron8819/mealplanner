@@ -86,6 +86,7 @@ export const CATEGORY_KEYWORDS = {
   // Whole meats
   'beef', 'steak', 'chicken', 'chicken breast', 'chicken thigh',
   'pork', 'pork chops', 'turkey', 'ham', 'lamb', 'duck',
+  'pargiot', 'chicken pargiot',
 
   // Seafood
   'salmon', 'shrimp', 'cod', 'tilapia', 'tuna', 'crab', 'lobster',
