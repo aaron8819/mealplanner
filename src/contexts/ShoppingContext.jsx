@@ -245,17 +245,23 @@ export function ShoppingProvider({ children, user, selectedRecipes }) {
         : recipe.ingredients.split(',');
 
       ingredients.forEach(ingredient => {
-        const trimmed = ingredient.trim().toLowerCase();
-        const normalized = normalizeIngredient(trimmed);
+        const trimmed = ingredient.trim();
+
+        // Skip empty ingredients (caused by double commas or trailing commas)
+        if (!trimmed || trimmed.length === 0) {
+          return;
+        }
+
+        const normalized = normalizeIngredient(trimmed.toLowerCase());
 
         // Skip if manually removed
         if (getIngredientStatus(normalized, recipe.id) === 'removed') {
           return;
         }
 
-        // Count ingredients
+        // Count ingredients - use consistent display name (first occurrence wins)
         if (!ingredientCounts[normalized]) {
-          ingredientCounts[normalized] = { count: 0, displayName: trimmed };
+          ingredientCounts[normalized] = { count: 0, displayName: trimmed.toLowerCase() };
         }
         ingredientCounts[normalized].count++;
 

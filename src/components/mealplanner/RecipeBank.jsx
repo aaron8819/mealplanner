@@ -182,7 +182,7 @@ Instructions:
 
   // Extract ingredient names without quantities for simple ingredients field
   const extractIngredientNames = (ingredients) => {
-    return ingredients.map(ingredient => {
+    const extractedNames = ingredients.map(ingredient => {
       // Skip subheaders (lines ending with colon that don't contain measurements)
       const isSubheader = ingredient.endsWith(':') &&
                          !ingredient.toLowerCase().includes('cup') &&
@@ -266,6 +266,10 @@ Instructions:
 
       return name;
     }).filter(name => name && name.length > 0); // Remove null/empty entries
+
+    // Remove duplicates and empty entries
+    const uniqueNames = [...new Set(extractedNames)].filter(name => name && name.trim().length > 0);
+    return uniqueNames;
   };
 
   // Keyboard shortcuts
@@ -385,9 +389,15 @@ Instructions:
 
     setLoading(true);
     try {
+      // Clean up the ingredients string - remove empty entries and extra spaces
+      const cleanIngredients = aiGeneratedRecipe.parsedIngredients
+        .filter(name => name && name.trim().length > 0)
+        .map(name => name.trim())
+        .join(', ');
+
       const finalRecipe = {
         ...newRecipe,
-        ingredients: aiGeneratedRecipe.parsedIngredients.join(', '),
+        ingredients: cleanIngredients,
         recipe_details: aiGeneratedRecipe.fullRecipe
       };
 
@@ -539,7 +549,12 @@ Instructions:
         const parsed = parseRecipeContent(finalRecipe.content);
         // Extract just ingredient names for the simple ingredients field
         const ingredientNames = extractIngredientNames(parsed.ingredients);
-        finalRecipe.ingredients = ingredientNames.join(', ');
+        // Clean up the ingredients string - remove empty entries and extra spaces
+        const cleanIngredients = ingredientNames
+          .filter(name => name && name.trim().length > 0)
+          .map(name => name.trim())
+          .join(', ');
+        finalRecipe.ingredients = cleanIngredients;
         finalRecipe.recipe_details = finalRecipe.content;
       } else {
         // Empty - should not happen due to validation, but handle gracefully
