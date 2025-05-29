@@ -215,6 +215,12 @@ Instructions:
       name = name.replace(/^(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|large|medium|small|inch|inches?)[\s\-]+/i, '');
       name = name.replace(/^(?:lb|pound)[\s\-]+/i, '');
 
+      // Remove "of" that often follows measurements (e.g., "cloves of garlic" -> "garlic")
+      name = name.replace(/^of\s+/i, '');
+
+      // Handle special cases like "Juice of 1 lemon" -> "lemon"
+      name = name.replace(/^(?:juice|zest|peel)\s+of\s+(?:\d+\s+)?/i, '');
+
       // Remove size/quantity descriptors that might come after numbers
       name = name.replace(/^(?:large|medium|small|thin|thick|whole|half|quarter)[\s\-]+/i, '');
 
