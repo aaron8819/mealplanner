@@ -59,19 +59,38 @@ export const RecipeDetailsModal = ({
       if (line.length < 2) continue;
 
       if (inInstructionsSection) {
-        // Everything after "Instructions" goes to instructions
-        // Keep colons for subheaders, but preserve the original line
-        instructions.push(line);
+        // Clean up instructions - remove leading numbers and dashes
+        let cleanInstruction = line
+          .replace(/^\d+\.\s+/, '') // Remove leading numbers like "1. " (with period and space)
+          .replace(/^\d+\.\s*$/, '') // Remove lines that are just numbers with period like "1."
+          .replace(/^\d+\s+/, '') // Remove leading numbers like "1 " (just number and space)
+          .replace(/^-\s*/, '') // Remove leading dashes
+          .replace(/^\*\s*/, '') // Remove leading asterisks
+          .replace(/^•\s*/, '') // Remove leading bullets
+          .trim();
+
+        if (cleanInstruction.length > 0) {
+          instructions.push(cleanInstruction);
+        }
       } else {
-        // Everything before "Instructions" goes to ingredients
-        // Only skip the main recipe title and "Ingredients:" header
+        // Clean up ingredients - remove leading dashes, bullets, etc.
         const isMainRecipeTitle = line === lines[0] && !lowerLine.includes('cup') && !lowerLine.includes('tsp') &&
                                  !lowerLine.includes('tbsp') && !lowerLine.includes('oz') && !lowerLine.includes('lb');
 
         if (!isMainRecipeTitle &&
             lowerLine !== 'ingredients' &&
             lowerLine !== 'ingredients:') {
-          ingredients.push(line);
+
+          let cleanIngredient = line
+            .replace(/^-\s*/, '') // Remove leading dashes
+            .replace(/^\*\s*/, '') // Remove leading asterisks
+            .replace(/^•\s*/, '') // Remove leading bullets
+            // Don't remove numbers from ingredients as they might be quantities like "1.5 lbs"
+            .trim();
+
+          if (cleanIngredient.length > 0) {
+            ingredients.push(cleanIngredient);
+          }
         }
       }
     }

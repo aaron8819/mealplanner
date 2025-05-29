@@ -144,7 +144,9 @@ Instructions:
       if (inInstructionsSection) {
         // Clean up instructions - remove leading numbers and dashes
         let cleanInstruction = line
-          .replace(/^\d+\.\s*/, '') // Remove leading numbers like "1. "
+          .replace(/^\d+\.\s+/, '') // Remove leading numbers like "1. " (with period and space)
+          .replace(/^\d+\.\s*$/, '') // Remove lines that are just numbers with period like "1."
+          .replace(/^\d+\s+/, '') // Remove leading numbers like "1 " (just number and space)
           .replace(/^-\s*/, '') // Remove leading dashes
           .replace(/^\*\s*/, '') // Remove leading asterisks
           .trim();
@@ -165,7 +167,7 @@ Instructions:
             .replace(/^-\s*/, '') // Remove leading dashes
             .replace(/^\*\s*/, '') // Remove leading asterisks
             .replace(/^•\s*/, '') // Remove leading bullets
-            .replace(/^[\d]+\.\s*/, '') // Remove leading numbers
+            // Don't remove numbers from ingredients as they might be quantities like "1.5 lbs"
             .trim();
 
           if (cleanIngredient.length > 0) {
@@ -199,9 +201,15 @@ Instructions:
       // Extract ingredient name by removing quantities and measurements
       let name = ingredient;
 
-      // Remove quantities at the beginning (numbers, fractions, ranges)
-      name = name.replace(/^\d+[\s\-\/]*\d*[\s\-]*(?:to\s+\d+[\s\-\/]*\d*)?[\s\-]*/i, ''); // 1, 1/2, 1-2, 3-4, 1 to 2
-      name = name.replace(/^[\d\-\/]+[\s\-]*/i, ''); // Any remaining number patterns
+      // Remove unusual measurements at the beginning
+      name = name.replace(/^(?:a\s+pinch\s+of|a\s+handful\s+of|a\s+splash\s+of|a\s+dash\s+of|a\s+drizzle\s+of|a\s+sprinkle\s+of)\s+/i, '');
+
+      // Enhanced quantity removal - handle decimals, fractions, and ranges better
+      name = name.replace(/^\d*\.?\d+[\s\-\/]*\d*[\s\-]*(?:to\s+\d*\.?\d+[\s\-\/]*\d*)?[\s\-]*/i, ''); // 1, 1.5, 1/2, 1-2, 1 to 2
+      name = name.replace(/^[\d\-\/\.]+[\s\-]*/i, ''); // Any remaining number patterns
+
+      // Remove container/packaging terms
+      name = name.replace(/^(?:can|bottle|package|box|bag|jar|container|tube|stick|block)\s+/i, '');
 
       // Remove measurements and size descriptors
       name = name.replace(/^(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|large|medium|small|inch|inches?)[\s\-]+/i, '');
@@ -213,8 +221,42 @@ Instructions:
       // Remove parenthetical descriptions but keep the main ingredient
       name = name.replace(/\s*\([^)]*\)\s*/g, ' ');
 
+      // Remove temperature and state descriptors that come after commas
+      name = name.replace(/,\s*(?:room\s+temperature|warm|cold|hot|frozen|fresh|dried|softened|melted|beaten|whipped).*$/i, '');
+
+      // Remove preparation terms that come after commas or at the end
+      // This handles cases like "onion, finely chopped" or "garlic, minced"
+      name = name.replace(/,\s*(?:finely\s+|roughly\s+|coarsely\s+|thinly\s+|thickly\s+)?(?:chopped|minced|diced|sliced|grated|shredded|juiced|zested|crushed|ground|mashed|pureed|peeled|cored|seeded|stemmed|trimmed|cleaned)(?:\s+(?:for\s+)?(?:garnish|serving|topping|decoration))?.*$/i, '');
+
+      // Remove multiple preparation terms connected with "and"
+      name = name.replace(/,\s*(?:peeled\s+and\s+)?(?:finely\s+|roughly\s+|coarsely\s+|thinly\s+|thickly\s+)?(?:chopped|minced|diced|sliced|grated|shredded|juiced|zested|crushed|ground|mashed|pureed|peeled|cored|seeded|stemmed|trimmed|cleaned)(?:\s+and\s+(?:finely\s+|roughly\s+|coarsely\s+|thinly\s+|thickly\s+)?(?:chopped|minced|diced|sliced|grated|shredded|juiced|zested|crushed|ground|mashed|pureed|peeled|cored|seeded|stemmed|trimmed|cleaned))*.*$/i, '');
+
+      // Remove standalone preparation terms at the end (without comma)
+      name = name.replace(/\s+(?:finely\s+|roughly\s+|coarsely\s+|thinly\s+|thickly\s+)?(?:chopped|minced|diced|sliced|grated|shredded|juiced|zested|crushed|ground|mashed|pureed|peeled|cored|seeded|stemmed|trimmed|cleaned)(?:\s+(?:for\s+)?(?:garnish|serving|topping|decoration))?.*$/i, '');
+
+      // Remove temperature/state descriptors at the end
+      name = name.replace(/\s+(?:warm|cold|hot|frozen|fresh|dried|softened|melted|beaten|whipped)$/i, '');
+
+      // Remove common phrases that appear at the end
+      name = name.replace(/\s*(?:to\s+taste|for\s+garnish|for\s+serving|for\s+topping|for\s+decoration|as\s+needed|optional).*$/i, '');
+
       // Clean up extra spaces and trim
       name = name.replace(/\s+/g, ' ').trim();
+
+      // Normalize capitalization - capitalize first letter, lowercase the rest (except proper nouns)
+      if (name) {
+        // Don't change capitalization of brand names or proper nouns (words that are already capitalized)
+        const words = name.split(' ');
+        const normalizedWords = words.map((word, index) => {
+          // Keep brand names and proper nouns as-is if they're already capitalized
+          if (word.length > 1 && word[0] === word[0].toUpperCase() && word.slice(1) === word.slice(1).toLowerCase()) {
+            return word; // Keep as-is (likely a brand name)
+          }
+          // For first word or common ingredients, use lowercase
+          return index === 0 ? word.toLowerCase() : word.toLowerCase();
+        });
+        name = normalizedWords.join(' ');
+      }
 
       return name;
     }).filter(name => name && name.length > 0); // Remove null/empty entries
